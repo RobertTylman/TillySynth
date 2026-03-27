@@ -8,7 +8,7 @@ namespace tillysynth
 static constexpr int kWindowWidth  = 1000;
 static constexpr int kWindowHeight = 780;
 static constexpr int kHeaderHeight = 50;
-static constexpr int kDriftBarHeight = 24;
+static constexpr int kDriftBarHeight = 36;
 static constexpr int kKeyboardHeight = 70;
 static constexpr int kSectionPadding = 6;
 static constexpr int kKnobSize = 60;
@@ -24,7 +24,6 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
     setResizeLimits (700, 546, 1600, 1248);
     getConstrainer()->setFixedAspectRatio (static_cast<double> (kWindowWidth)
                                          / static_cast<double> (kWindowHeight));
-    setSize (kWindowWidth, kWindowHeight);
 
     // Style the keyboard to match the Juno aesthetic
     keyboard.setColour (juce::MidiKeyboardComponent::whiteNoteColourId, Colours::mutedCream);
@@ -35,7 +34,7 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
     keyboard.setOctaveForMiddleC (4);
     addAndMakeVisible (keyboard);
 
-    // Preset selector
+    // Preset selector with prev/next arrows
     auto presetNames = processorRef.getPresetManager().getPresetNames();
     for (int i = 0; i < presetNames.size(); ++i)
         presetSelector.addItem (presetNames[i], i + 1);
@@ -48,6 +47,41 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
             processorRef.getPresetManager().loadPreset (idx);
     };
     addAndMakeVisible (presetSelector);
+
+    presetPrev.setButtonText ("<");
+    presetPrev.onClick = [this]
+    {
+        int current = presetSelector.getSelectedItemIndex();
+        if (current > 0)
+            presetSelector.setSelectedItemIndex (current - 1);
+        else
+            presetSelector.setSelectedItemIndex (processorRef.getPresetManager().getNumPresets() - 1);
+    };
+    addAndMakeVisible (presetPrev);
+
+    presetNext.setButtonText (">");
+    presetNext.onClick = [this]
+    {
+        int current = presetSelector.getSelectedItemIndex();
+        int total = processorRef.getPresetManager().getNumPresets();
+        if (current < total - 1)
+            presetSelector.setSelectedItemIndex (current + 1);
+        else
+            presetSelector.setSelectedItemIndex (0);
+    };
+    addAndMakeVisible (presetNext);
+
+    // Master volume slider in header
+    masterVolumeSlider.setSliderStyle (juce::Slider::LinearHorizontal);
+    masterVolumeSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
+    addAndMakeVisible (masterVolumeSlider);
+    masterVolumeAttachment = std::make_unique<SliderAttachment> (
+        processorRef.getAPVTS(), "master_volume", masterVolumeSlider);
+
+    masterVolumeLabel.setText ("Vol", juce::dontSendNotification);
+    masterVolumeLabel.setJustificationType (juce::Justification::centredRight);
+    masterVolumeLabel.setFont (juce::Font (juce::FontOptions (10.0f)));
+    addAndMakeVisible (masterVolumeLabel);
 
     // Generate panel wear scuffs (normalised 0–1 coordinates, scaled at paint time)
     wearRandom.setSeed (static_cast<juce::int64> (juce::Time::currentTimeMillis()));
@@ -123,6 +157,8 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
     toggles["master_mono_legato"] = createToggle ("master_mono_legato", "Legato");
     knobs["master_analog_drift"]  = createKnob ("master_analog_drift", "Drift");
 
+    // Set size AFTER all components exist so resized() can lay them out
+    setSize (kWindowWidth, kWindowHeight);
     startTimerHz (30);
 }
 
@@ -241,8 +277,15 @@ void TillySynthEditor::paint (juce::Graphics& g)
 
 void TillySynthEditor::resized()
 {
-    // Preset selector in header area
-    presetSelector.setBounds (getWidth() / 2 - 120, 12, 240, 26);
+    // Header controls
+    int headerCentreX = getWidth() / 2;
+    presetPrev.setBounds (headerCentreX - 155, 12, 28, 26);
+    presetSelector.setBounds (headerCentreX - 125, 12, 250, 26);
+    presetNext.setBounds (headerCentreX + 127, 12, 28, 26);
+
+    // Master volume slider in header (right side, before "Robbie Tylman")
+    masterVolumeLabel.setBounds (getWidth() - 230, 14, 30, 22);
+    masterVolumeSlider.setBounds (getWidth() - 200, 14, 120, 22);
 
     // Keyboard at the bottom
     keyboard.setBounds (getLocalBounds().removeFromBottom (kKeyboardHeight));
@@ -547,35 +590,61 @@ void TillySynthEditor::drawHeader (juce::Graphics& g, juce::Rectangle<int> bound
 
 void TillySynthEditor::drawDriftBar (juce::Graphics& g, juce::Rectangle<int> bounds)
 {
-    g.setColour (Colours::panelBackground.darker (0.2f));
+    g.setColour (Colours::panelBackground.darker (0.3f));
     g.fillRect (bounds);
 
-    auto inner = bounds.reduced (8, 3);
-    float barWidth = static_cast<float> (inner.getWidth()) / 16.0f;
-    float maxBarHeight = static_cast<float> (inner.getHeight());
+    // Top border
+    g.setColour (Colours::panelBorder);
+    g.drawLine (static_cast<float> (bounds.getX()), static_cast<float> (bounds.getY()),
+                static_cast<float> (bounds.getRight()), static_cast<float> (bounds.getY()), 0.5f);
 
     // Label
-    g.setColour (Colours::labelText.withAlpha (0.4f));
+    g.setColour (Colours::warmAmber.withAlpha (0.5f));
     g.setFont (juce::Font (juce::FontOptions (9.0f)));
-    g.drawText ("DRIFT", bounds.withWidth (40).withTrimmedLeft (4), juce::Justification::centredLeft);
+    g.drawText ("ANALOGUE DRIFT", bounds.withWidth (90).withTrimmedLeft (6),
+                juce::Justification::centredLeft);
 
-    float startX = static_cast<float> (inner.getX()) + 30.0f;
-    float availableWidth = static_cast<float> (inner.getWidth()) - 30.0f;
-    barWidth = availableWidth / 16.0f;
+    float labelWidth = 92.0f;
+    float rightPad = 8.0f;
+    float startX = static_cast<float> (bounds.getX()) + labelWidth;
+    float availableWidth = static_cast<float> (bounds.getWidth()) - labelWidth - rightPad;
+    float barWidth = availableWidth / 16.0f;
+    float maxBarHeight = static_cast<float> (bounds.getHeight()) - 14.0f;
+    float barTop = static_cast<float> (bounds.getY()) + 4.0f;
 
     for (int i = 0; i < 16; ++i)
     {
         float normDrift = smoothedDrift[static_cast<size_t> (i)] / 8.0f;
         normDrift = juce::jlimit (0.0f, 1.0f, normDrift);
 
-        float h = normDrift * maxBarHeight;
         float x = startX + static_cast<float> (i) * barWidth;
-        float y = static_cast<float> (inner.getY()) + maxBarHeight - h;
+        float bw = barWidth - 3.0f;
 
-        // Colour shifts from amber to warm red with intensity
-        auto barColour = Colours::warmAmber.interpolatedWith (Colours::vuRed, normDrift * 0.6f);
-        g.setColour (barColour.withAlpha (0.7f + normDrift * 0.3f));
-        g.fillRoundedRectangle (x + 1.0f, y, barWidth - 2.0f, h, 1.5f);
+        // Background slot
+        g.setColour (Colours::panelBackground.darker (0.1f));
+        g.fillRoundedRectangle (x + 1.0f, barTop, bw, maxBarHeight, 2.0f);
+
+        // Filled bar from bottom
+        float h = juce::jmax (1.0f, normDrift * maxBarHeight);
+        float y = barTop + maxBarHeight - h;
+
+        auto barColour = Colours::warmAmber.interpolatedWith (Colours::vuRed, normDrift * 0.7f);
+        g.setColour (barColour.withAlpha (0.5f + normDrift * 0.5f));
+        g.fillRoundedRectangle (x + 1.0f, y, bw, h, 2.0f);
+
+        // Glow at top of bar for visibility
+        if (normDrift > 0.05f)
+        {
+            g.setColour (barColour.withAlpha (normDrift * 0.3f));
+            g.fillEllipse (x + 1.0f, y - 2.0f, bw, 4.0f);
+        }
+
+        // Voice number below
+        g.setColour (Colours::labelText.withAlpha (0.3f));
+        g.setFont (juce::Font (juce::FontOptions (7.0f)));
+        g.drawText (juce::String (i + 1),
+                    juce::Rectangle<float> (x, barTop + maxBarHeight, barWidth, 10.0f),
+                    juce::Justification::centred);
     }
 }
 

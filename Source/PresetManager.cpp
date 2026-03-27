@@ -10,12 +10,12 @@ static Preset makePreset (const juce::String& name, const juce::String& category
     // Default parameter values matching the APVTS defaults
     std::vector<std::pair<juce::String, float>> defaults = {
         { "osc1_waveform", 1 }, { "osc1_octave", 0 }, { "osc1_semitone", 0 },
-        { "osc1_fine_tune", 0 }, { "osc1_level", 100 }, { "osc1_pulse_width", 50 },
+        { "osc1_fine_tune", 0 }, { "osc1_level", 50 }, { "osc1_pulse_width", 50 },
         { "osc1_unison_voices", 1 }, { "osc1_unison_detune", 20 }, { "osc1_unison_blend", 50 },
         { "osc1_attack", 5 }, { "osc1_decay", 200 }, { "osc1_sustain", 70 }, { "osc1_release", 300 },
 
         { "osc2_waveform", 1 }, { "osc2_octave", 0 }, { "osc2_semitone", 0 },
-        { "osc2_fine_tune", 0 }, { "osc2_level", 100 }, { "osc2_pulse_width", 50 },
+        { "osc2_fine_tune", 0 }, { "osc2_level", 50 }, { "osc2_pulse_width", 50 },
         { "osc2_unison_voices", 1 }, { "osc2_unison_detune", 20 }, { "osc2_unison_blend", 50 },
         { "osc2_attack", 5 }, { "osc2_decay", 200 }, { "osc2_sustain", 70 }, { "osc2_release", 300 },
 

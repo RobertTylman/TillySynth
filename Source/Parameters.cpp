@@ -26,7 +26,7 @@ static void addOscillatorParams (juce::AudioProcessorValueTreeState::ParameterLa
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { prefix + "_level", 1 }, name + " Level",
-        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 100.0f));
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 50.0f));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { prefix + "_pulse_width", 1 }, name + " Pulse Width",

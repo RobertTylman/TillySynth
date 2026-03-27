@@ -69,8 +69,14 @@ private:
     TillySynthProcessor& processorRef;
     TillySynthLookAndFeel lookAndFeel;
 
-    // Preset selector
+    // Preset selector with nav buttons
     juce::ComboBox presetSelector;
+    juce::TextButton presetPrev, presetNext;
+
+    // Master volume in header
+    juce::Slider masterVolumeSlider;
+    juce::Label masterVolumeLabel;
+    std::unique_ptr<SliderAttachment> masterVolumeAttachment;
 
     // MIDI keyboard
     juce::MidiKeyboardComponent keyboard;

@@ -157,7 +157,7 @@ void TillySynthProcessor::updateParametersFromAPVTS()
     chorus.setDepth (getFloat (ParamIDs::chorusDepth) / 100.0f);
 
     // Master
-    masterVolume.setTargetValue (getFloat (ParamIDs::masterVolume) / 100.0f);
+    masterVolume.setTargetValue (getFloat (ParamIDs::masterVolume) / 100.0f * 0.25f);
     voiceManager.setMaxPolyphony (getInt (ParamIDs::masterPolyphony));
     voiceManager.setGlideTime (getFloat (ParamIDs::masterGlide));
     voiceManager.setPitchBendRange (getInt (ParamIDs::masterPitchBend));
