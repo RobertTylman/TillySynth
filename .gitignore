@@ -1,0 +1,44 @@
+# Build
+build/
+cmake-build-*/
+out/
+
+# IDE
+.idea/
+.vscode/
+*.xcodeproj/
+*.xcworkspace/
+*.suo
+*.user
+*.sln
+*.vcxproj*
+
+# CMake / clangd
+compile_commands.json
+CMakeUserPresets.json
+.cache/
+
+# OS
+.DS_Store
+Thumbs.db
+._*
+
+# Plugin binaries
+*.vst3
+*.component
+*.app
+
+# CPM cache
+_deps/
+
+# Compiled objects
+*.o
+*.obj
+*.a
+*.lib
+*.dylib
+*.dll
+*.so
+
+# Claude
+.claude/plans/
