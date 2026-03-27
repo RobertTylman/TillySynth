@@ -32,7 +32,7 @@ public:
 private:
     static constexpr int kMaxUnisonVoices = 7;
 
-    float generateWaveformSample (float phase) const;
+    float generateWaveformSample (float phase, float phaseInc) const;
     void updateUnisonFrequencies();
 
     Waveform waveform = Waveform::Sawtooth;

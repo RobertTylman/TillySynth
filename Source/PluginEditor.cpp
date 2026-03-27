@@ -229,9 +229,9 @@ void TillySynthEditor::paint (juce::Graphics& g)
 
     drawHeader (g, bounds.removeFromTop (kHeaderHeight));
 
-    // Drift visualisation bar below header
+    // Oscilloscope drift display below header
     auto driftBarArea = bounds.removeFromTop (kDriftBarHeight);
-    drawDriftBar (g, driftBarArea);
+    drawDriftScope (g, driftBarArea);
 
     drawPanelWear (g, getLocalBounds());
 
@@ -261,6 +261,18 @@ void TillySynthEditor::paint (juce::Graphics& g)
     drawSectionBackground (g, filterArea, "FILTER");
     drawSectionBackground (g, lfo1Area, "LFO 1");
     drawSectionBackground (g, lfo2Area, "LFO 2");
+
+    // LFO waveform visualisation (bottom portion of each LFO section)
+    auto lfo1VisArea = lfo1Area.withTrimmedTop (lfo1Area.getHeight() - 40).reduced (8, 4);
+    auto lfo2VisArea = lfo2Area.withTrimmedTop (lfo2Area.getHeight() - 40).reduced (8, 4);
+    drawLFOWaveform (g, lfo1VisArea,
+                     processorRef.lfo1Waveform.load(),
+                     processorRef.lfo1Phase.load(),
+                     processorRef.lfo1Rate.load());
+    drawLFOWaveform (g, lfo2VisArea,
+                     processorRef.lfo2Waveform.load(),
+                     processorRef.lfo2Phase.load(),
+                     processorRef.lfo2Rate.load());
 
     contentArea.removeFromTop (kSectionPadding);
 
@@ -557,12 +569,12 @@ void TillySynthEditor::timerCallback()
     vuLeft  += (targetL > vuLeft)  ? (targetL - vuLeft) * attack  : (targetL - vuLeft) * release;
     vuRight += (targetR > vuRight) ? (targetR - vuRight) * attack : (targetR - vuRight) * release;
 
-    // Smooth drift values for visualisation
-    for (int i = 0; i < 16; ++i)
+    // Copy scope buffer for oscilloscope display
+    int writePos = processorRef.scopeWritePos.load();
+    for (int i = 0; i < TillySynthProcessor::kScopeBufferSize; ++i)
     {
-        float target = std::abs (processorRef.driftVisPitch[static_cast<size_t> (i)].load());
-        smoothedDrift[static_cast<size_t> (i)] +=
-            (target - smoothedDrift[static_cast<size_t> (i)]) * 0.2f;
+        int idx = (writePos + i) % TillySynthProcessor::kScopeBufferSize;
+        scopeSnapshot[static_cast<size_t> (i)] = processorRef.scopeBuffer[static_cast<size_t> (idx)].load();
     }
 
     repaint();
@@ -588,12 +600,12 @@ void TillySynthEditor::drawHeader (juce::Graphics& g, juce::Rectangle<int> bound
                 static_cast<float> (bounds.getRight()), static_cast<float> (bounds.getBottom()), 1.5f);
 }
 
-void TillySynthEditor::drawDriftBar (juce::Graphics& g, juce::Rectangle<int> bounds)
+void TillySynthEditor::drawDriftScope (juce::Graphics& g, juce::Rectangle<int> bounds)
 {
-    g.setColour (Colours::panelBackground.darker (0.3f));
+    g.setColour (Colours::panelBackground.darker (0.4f));
     g.fillRect (bounds);
 
-    // Top border
+    // Borders
     g.setColour (Colours::panelBorder);
     g.drawLine (static_cast<float> (bounds.getX()), static_cast<float> (bounds.getY()),
                 static_cast<float> (bounds.getRight()), static_cast<float> (bounds.getY()), 0.5f);
@@ -601,51 +613,52 @@ void TillySynthEditor::drawDriftBar (juce::Graphics& g, juce::Rectangle<int> bou
     // Label
     g.setColour (Colours::warmAmber.withAlpha (0.5f));
     g.setFont (juce::Font (juce::FontOptions (9.0f)));
-    g.drawText ("ANALOGUE DRIFT", bounds.withWidth (90).withTrimmedLeft (6),
+    g.drawText ("SCOPE", bounds.withWidth (44).withTrimmedLeft (6),
                 juce::Justification::centredLeft);
 
-    float labelWidth = 92.0f;
-    float rightPad = 8.0f;
-    float startX = static_cast<float> (bounds.getX()) + labelWidth;
-    float availableWidth = static_cast<float> (bounds.getWidth()) - labelWidth - rightPad;
-    float barWidth = availableWidth / 16.0f;
-    float maxBarHeight = static_cast<float> (bounds.getHeight()) - 14.0f;
-    float barTop = static_cast<float> (bounds.getY()) + 4.0f;
+    // Draw oscilloscope waveform
+    float scopeX = static_cast<float> (bounds.getX()) + 46.0f;
+    float scopeW = static_cast<float> (bounds.getWidth()) - 52.0f;
+    float scopeY = static_cast<float> (bounds.getY()) + 3.0f;
+    float scopeH = static_cast<float> (bounds.getHeight()) - 6.0f;
+    float centreY = scopeY + scopeH * 0.5f;
 
-    for (int i = 0; i < 16; ++i)
+    // Centre line
+    g.setColour (Colours::warmAmber.withAlpha (0.15f));
+    g.drawLine (scopeX, centreY, scopeX + scopeW, centreY, 0.5f);
+
+    // Grid lines
+    g.setColour (Colours::warmAmber.withAlpha (0.07f));
+    for (int q = 1; q <= 3; ++q)
     {
-        float normDrift = smoothedDrift[static_cast<size_t> (i)] / 8.0f;
-        normDrift = juce::jlimit (0.0f, 1.0f, normDrift);
-
-        float x = startX + static_cast<float> (i) * barWidth;
-        float bw = barWidth - 3.0f;
-
-        // Background slot
-        g.setColour (Colours::panelBackground.darker (0.1f));
-        g.fillRoundedRectangle (x + 1.0f, barTop, bw, maxBarHeight, 2.0f);
-
-        // Filled bar from bottom
-        float h = juce::jmax (1.0f, normDrift * maxBarHeight);
-        float y = barTop + maxBarHeight - h;
-
-        auto barColour = Colours::warmAmber.interpolatedWith (Colours::vuRed, normDrift * 0.7f);
-        g.setColour (barColour.withAlpha (0.5f + normDrift * 0.5f));
-        g.fillRoundedRectangle (x + 1.0f, y, bw, h, 2.0f);
-
-        // Glow at top of bar for visibility
-        if (normDrift > 0.05f)
-        {
-            g.setColour (barColour.withAlpha (normDrift * 0.3f));
-            g.fillEllipse (x + 1.0f, y - 2.0f, bw, 4.0f);
-        }
-
-        // Voice number below
-        g.setColour (Colours::labelText.withAlpha (0.3f));
-        g.setFont (juce::Font (juce::FontOptions (7.0f)));
-        g.drawText (juce::String (i + 1),
-                    juce::Rectangle<float> (x, barTop + maxBarHeight, barWidth, 10.0f),
-                    juce::Justification::centred);
+        float qx = scopeX + scopeW * static_cast<float> (q) / 4.0f;
+        g.drawLine (qx, scopeY, qx, scopeY + scopeH, 0.5f);
     }
+
+    // Draw waveform
+    juce::Path wavePath;
+    int numPoints = TillySynthProcessor::kScopeBufferSize;
+    float xStep = scopeW / static_cast<float> (numPoints - 1);
+
+    for (int i = 0; i < numPoints; ++i)
+    {
+        float sample = scopeSnapshot[static_cast<size_t> (i)];
+        sample = juce::jlimit (-1.0f, 1.0f, sample * 4.0f); // amplify for visibility
+        float px = scopeX + static_cast<float> (i) * xStep;
+        float py = centreY - sample * scopeH * 0.45f;
+
+        if (i == 0)
+            wavePath.startNewSubPath (px, py);
+        else
+            wavePath.lineTo (px, py);
+    }
+
+    g.setColour (Colours::warmAmber.withAlpha (0.8f));
+    g.strokePath (wavePath, juce::PathStrokeType (1.2f));
+
+    // Glow effect
+    g.setColour (Colours::warmAmber.withAlpha (0.15f));
+    g.strokePath (wavePath, juce::PathStrokeType (3.0f));
 }
 
 void TillySynthEditor::drawSectionBackground (juce::Graphics& g, juce::Rectangle<int> bounds,

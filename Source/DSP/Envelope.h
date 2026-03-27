@@ -33,8 +33,11 @@ private:
     float releaseMs = 300.0f;
 
     float attackCoeff  = 0.0f;
+    float attackBase   = 0.0f;
     float decayCoeff   = 0.0f;
+    float decayBase    = 0.0f;
     float releaseCoeff = 0.0f;
+    float releaseBase  = 0.0f;
 
     float currentValue = 0.0f;
 };

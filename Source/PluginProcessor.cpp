@@ -75,6 +75,28 @@ void TillySynthProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // Chorus (post-voice processing)
     chorus.process (buffer);
 
+    // Fill scope buffer (downsample to fit)
+    {
+        int writePos = scopeWritePos.load();
+        const float* scopeSource = buffer.getReadPointer (0);
+        // Write every Nth sample to keep scope buffer at a reasonable rate
+        int step = juce::jmax (1, numSamples / 64);
+        for (int i = 0; i < numSamples; i += step)
+        {
+            scopeBuffer[static_cast<size_t> (writePos)].store (scopeSource[i]);
+            writePos = (writePos + 1) % kScopeBufferSize;
+        }
+        scopeWritePos.store (writePos);
+    }
+
+    // Expose LFO state for UI
+    lfo1Phase.store (voiceManager.getLFO1().getPhase());
+    lfo2Phase.store (voiceManager.getLFO2().getPhase());
+    lfo1Waveform.store (static_cast<int> (voiceManager.getLFO1().getWaveform()));
+    lfo2Waveform.store (static_cast<int> (voiceManager.getLFO2().getWaveform()));
+    lfo1Rate.store (voiceManager.getLFO1().getRate());
+    lfo2Rate.store (voiceManager.getLFO2().getRate());
+
     // Update output levels for VU meter
     outputLevelLeft.store (buffer.getRMSLevel (0, 0, numSamples));
     if (buffer.getNumChannels() > 1)

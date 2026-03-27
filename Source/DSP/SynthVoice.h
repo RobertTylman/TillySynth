@@ -77,6 +77,15 @@ private:
     float filterVelocitySens = 0.0f;
 
     double sampleRate = 44100.0;
+
+    // Voice stealing fade-out
+    bool stealing = false;
+    float stealFadeLevel = 1.0f;
+    float stealFadeDecrement = 0.0f;
+
+    // Pending note-on for after fade completes
+    int pendingNote = -1;
+    float pendingVelocity = 0.0f;
 };
 
 } // namespace tillysynth

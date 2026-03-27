@@ -54,11 +54,13 @@ private:
 
     void timerCallback() override;
     void drawHeader (juce::Graphics& g, juce::Rectangle<int> bounds);
-    void drawDriftBar (juce::Graphics& g, juce::Rectangle<int> bounds);
+    void drawDriftScope (juce::Graphics& g, juce::Rectangle<int> bounds);
     void drawSectionBackground (juce::Graphics& g, juce::Rectangle<int> bounds,
                                 const juce::String& title);
     void drawVUMeter (juce::Graphics& g, juce::Rectangle<int> bounds);
     void drawPanelWear (juce::Graphics& g, juce::Rectangle<int> bounds);
+    void drawLFOWaveform (juce::Graphics& g, juce::Rectangle<int> bounds,
+                          int waveformType, float phase, float rate);
 
     void layoutOscillatorSection (juce::Rectangle<int> area, const juce::String& prefix);
     void layoutFilterSection (juce::Rectangle<int> area);
@@ -81,8 +83,8 @@ private:
     // MIDI keyboard
     juce::MidiKeyboardComponent keyboard;
 
-    // Drift visualisation (smoothed for display)
-    std::array<float, 16> smoothedDrift {};
+    // Scope buffer snapshot for oscilloscope display
+    std::array<float, 512> scopeSnapshot {};
 
     // VU meter values with analogue ballistics
     float vuLeft = 0.0f, vuRight = 0.0f;

@@ -7,6 +7,10 @@ void SubtractiveFilter::prepare (double sampleRate, int samplesPerBlock)
 {
     currentSampleRate = sampleRate;
 
+    // Smoothing coefficient: ~2ms time constant
+    float smoothSamples = static_cast<float> (sampleRate * 0.002);
+    smoothingCoeff = 1.0f - 1.0f / smoothSamples;
+
     juce::dsp::ProcessSpec spec;
     spec.sampleRate = sampleRate;
     spec.maximumBlockSize = static_cast<juce::uint32> (samplesPerBlock);
@@ -26,6 +30,16 @@ void SubtractiveFilter::reset()
 
 float SubtractiveFilter::processSample (float input)
 {
+    // Smooth the cutoff toward target every sample
+    smoothedCutoffHz += (targetCutoffHz - smoothedCutoffHz) * (1.0f - smoothingCoeff);
+
+    // Only recalculate expensive coefficients every 4 samples
+    if (++updateCounter >= 4)
+    {
+        updateCounter = 0;
+        updateCoefficients();
+    }
+
     float output = filter1.processSample (input);
 
     if (use24dB)
@@ -36,14 +50,12 @@ float SubtractiveFilter::processSample (float input)
 
 void SubtractiveFilter::setCutoff (float frequencyHz)
 {
-    cutoffHz = juce::jlimit (20.0f, 20000.0f, frequencyHz);
-    updateCoefficients();
+    targetCutoffHz = juce::jlimit (20.0f, 20000.0f, frequencyHz);
 }
 
 void SubtractiveFilter::setResonance (float resonance01)
 {
     resonance = juce::jlimit (0.0f, 1.0f, resonance01);
-    updateCoefficients();
 }
 
 void SubtractiveFilter::setMode (FilterMode m)
@@ -62,21 +74,23 @@ void SubtractiveFilter::updateCoefficients()
     // Map resonance 0-1 to Q 0.5-20
     float q = 0.5f + resonance * 19.5f;
 
+    float cutoff = juce::jlimit (20.0f, 20000.0f, smoothedCutoffHz);
+
     juce::dsp::IIR::Coefficients<float>::Ptr coeffs;
 
     switch (mode)
     {
         case FilterMode::LowPass:
-            coeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass (currentSampleRate, cutoffHz, q);
+            coeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass (currentSampleRate, cutoff, q);
             break;
         case FilterMode::HighPass:
-            coeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass (currentSampleRate, cutoffHz, q);
+            coeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass (currentSampleRate, cutoff, q);
             break;
         case FilterMode::BandPass:
-            coeffs = juce::dsp::IIR::Coefficients<float>::makeBandPass (currentSampleRate, cutoffHz, q);
+            coeffs = juce::dsp::IIR::Coefficients<float>::makeBandPass (currentSampleRate, cutoff, q);
             break;
         case FilterMode::Notch:
-            coeffs = juce::dsp::IIR::Coefficients<float>::makeNotch (currentSampleRate, cutoffHz, q);
+            coeffs = juce::dsp::IIR::Coefficients<float>::makeNotch (currentSampleRate, cutoff, q);
             break;
     }
 

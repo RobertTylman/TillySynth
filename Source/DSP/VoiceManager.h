@@ -51,6 +51,8 @@ public:
     void setPitchBendRange (int semitones);
 
     AnalogueDriftEngine& getDriftEngine() { return driftEngine; }
+    const LFO& getLFO1() const { return lfo1; }
+    const LFO& getLFO2() const { return lfo2; }
 
 private:
     int findFreeVoice() const;

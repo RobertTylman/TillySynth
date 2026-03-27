@@ -26,6 +26,11 @@ public:
     void setDepth (float depth01);
     void setDestinations (bool cutoff, bool pitch, bool volume, bool pw);
 
+    float getPhase() const { return phase; }
+    Waveform getWaveform() const { return waveform; }
+    float getRate() const { return rate; }
+    float getDepth() const { return depth; }
+
 private:
     float generateSample();
 

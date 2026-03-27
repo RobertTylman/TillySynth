@@ -24,9 +24,12 @@ private:
 
     FilterMode mode = FilterMode::LowPass;
     bool use24dB = true;
-    float cutoffHz = 8000.0f;
+    float targetCutoffHz = 8000.0f;
+    float smoothedCutoffHz = 8000.0f;
     float resonance = 0.2f;
     double currentSampleRate = 44100.0;
+    float smoothingCoeff = 0.995f;
+    int updateCounter = 0;
 
     // Two cascaded biquad stages for 12 or 24 dB/oct
     juce::dsp::IIR::Filter<float> filter1;

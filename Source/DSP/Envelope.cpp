@@ -44,7 +44,8 @@ float Envelope::processSample()
             return 0.0f;
 
         case Stage::Attack:
-            currentValue += attackCoeff;
+            // Exponential attack: multiply toward overshoot target
+            currentValue = attackBase + currentValue * attackCoeff;
             if (currentValue >= 1.0f)
             {
                 currentValue = 1.0f;
@@ -53,8 +54,9 @@ float Envelope::processSample()
             break;
 
         case Stage::Decay:
-            currentValue -= decayCoeff;
-            if (currentValue <= sustainLevel)
+            // Exponential decay toward sustain level
+            currentValue = decayBase + currentValue * decayCoeff;
+            if (currentValue <= sustainLevel + 0.0001f)
             {
                 currentValue = sustainLevel;
                 stage = Stage::Sustain;
@@ -66,8 +68,9 @@ float Envelope::processSample()
             break;
 
         case Stage::Release:
-            currentValue -= releaseCoeff;
-            if (currentValue <= 0.0f)
+            // Exponential release toward zero
+            currentValue = releaseBase + currentValue * releaseCoeff;
+            if (currentValue <= 0.0001f)
             {
                 currentValue = 0.0f;
                 stage = Stage::Idle;
@@ -80,18 +83,33 @@ float Envelope::processSample()
 
 void Envelope::calculateCoefficients()
 {
-    auto samplesToCoeff = [] (float ms, double sr) -> float
-    {
-        if (ms <= 0.0f)
-            return 1.0f;
+    // Attempt to create smooth exponential curves.
+    // For each stage, we compute coeff = exp(-1 / (time_in_samples * rate_constant))
+    // The "base" offsets the curve so it converges to the target level.
 
-        float samples = static_cast<float> (ms * 0.001f * sr);
-        return 1.0f / samples;
+    auto calcCoeff = [] (float timeMs, double sr) -> float
+    {
+        if (timeMs <= 0.0f)
+            return 0.0f; // instant
+
+        float samples = static_cast<float> (timeMs * 0.001f * sr);
+        // Use a time constant that reaches ~99.3% in the given time
+        return std::exp (-std::log (1000.0f) / samples);
     };
 
-    attackCoeff = samplesToCoeff (attackMs, currentSampleRate);
-    decayCoeff = (1.0f - sustainLevel) * samplesToCoeff (decayMs, currentSampleRate);
-    releaseCoeff = samplesToCoeff (releaseMs, currentSampleRate);
+    attackCoeff = calcCoeff (attackMs, currentSampleRate);
+    // Attack goes from current toward 1.0, but we overshoot slightly
+    // to avoid the exponential curve flattening near the target.
+    // target = 1.0, so base = (1 - coeff) * target
+    attackBase = (1.0f - attackCoeff);
+
+    decayCoeff = calcCoeff (decayMs, currentSampleRate);
+    // Decay goes from 1.0 toward sustainLevel
+    decayBase = (1.0f - decayCoeff) * sustainLevel;
+
+    releaseCoeff = calcCoeff (releaseMs, currentSampleRate);
+    // Release goes from sustainLevel toward 0
+    releaseBase = 0.0f; // target is 0, so base = (1 - coeff) * 0 = 0
 }
 
 } // namespace tillysynth

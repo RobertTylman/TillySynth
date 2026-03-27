@@ -13,6 +13,9 @@ void SynthVoice::prepare (double sr, int samplesPerBlock)
     ampEnv2.prepare (sr);
     filterEnv.prepare (sr);
     filter.prepare (sr, samplesPerBlock);
+
+    // ~2ms fade-out for voice stealing
+    stealFadeDecrement = 1.0f / static_cast<float> (sr * 0.002);
 }
 
 void SynthVoice::reset()
@@ -29,15 +32,29 @@ void SynthVoice::reset()
 
 void SynthVoice::noteOn (int midiNote, float velocity, bool legatoRetrigger)
 {
+    if (legatoRetrigger)
+    {
+        currentNote = midiNote;
+        currentVelocity = velocity;
+        noteHeld = true;
+        return;
+    }
+
+    // If voice is currently active, initiate a quick fade-out before retriggering
+    if (isActive() && ! stealing)
+    {
+        stealing = true;
+        stealFadeLevel = 1.0f;
+        pendingNote = midiNote;
+        pendingVelocity = velocity;
+        return;
+    }
+
     currentNote = midiNote;
     currentVelocity = velocity;
     noteHeld = true;
-
-    if (legatoRetrigger)
-    {
-        // Legato: retrigger pitch only, envelopes continue
-        return;
-    }
+    stealing = false;
+    stealFadeLevel = 1.0f;
 
     ampEnv1.noteOn();
     ampEnv2.noteOn();
@@ -60,8 +77,37 @@ float SynthVoice::processSample (float lfoFilterMod, float lfoPitchMod,
                                   float lfoVolumeMod, float lfoPWMod,
                                   float driftPitchCents, float driftCutoffHz)
 {
-    if (! isActive())
+    if (! isActive() && ! stealing)
         return 0.0f;
+
+    // Handle voice stealing fade-out
+    if (stealing)
+    {
+        stealFadeLevel -= stealFadeDecrement;
+        if (stealFadeLevel <= 0.0f)
+        {
+            // Fade complete — retrigger with pending note
+            stealFadeLevel = 1.0f;
+            stealing = false;
+
+            currentNote = pendingNote;
+            currentVelocity = pendingVelocity;
+            noteHeld = true;
+
+            ampEnv1.reset();
+            ampEnv2.reset();
+            filterEnv.reset();
+            osc1.reset();
+            osc2.reset();
+            filter.reset();
+
+            ampEnv1.noteOn();
+            ampEnv2.noteOn();
+            filterEnv.noteOn();
+
+            return 0.0f;
+        }
+    }
 
     float freq1 = calculateFrequency (currentNote, osc1Octave, osc1Semitone,
                                        osc1FineTune, lfoPitchMod, driftPitchCents);
@@ -109,12 +155,17 @@ float SynthVoice::processSample (float lfoFilterMod, float lfoPitchMod,
 
     filter.setCutoff (modulatedCutoff);
 
-    return filter.processSample (mixed);
+    float output = filter.processSample (mixed);
+
+    if (stealing)
+        output *= stealFadeLevel;
+
+    return output;
 }
 
 bool SynthVoice::isActive() const
 {
-    return ampEnv1.isActive() || ampEnv2.isActive();
+    return stealing || ampEnv1.isActive() || ampEnv2.isActive();
 }
 
 void SynthVoice::setOsc1Params (Waveform wf, int octave, int semitone, float fineTuneCents,

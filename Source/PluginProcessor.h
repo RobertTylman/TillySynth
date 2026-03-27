@@ -52,6 +52,19 @@ public:
     std::atomic<float> outputLevelLeft  { 0.0f };
     std::atomic<float> outputLevelRight { 0.0f };
 
+    // Audio scope buffer for oscilloscope display
+    static constexpr int kScopeBufferSize = 512;
+    std::array<std::atomic<float>, kScopeBufferSize> scopeBuffer {};
+    std::atomic<int> scopeWritePos { 0 };
+
+    // LFO state for UI visualisation
+    std::atomic<float> lfo1Phase { 0.0f };
+    std::atomic<float> lfo2Phase { 0.0f };
+    std::atomic<int> lfo1Waveform { 0 };
+    std::atomic<int> lfo2Waveform { 0 };
+    std::atomic<float> lfo1Rate { 1.0f };
+    std::atomic<float> lfo2Rate { 1.0f };
+
 private:
     void updateParametersFromAPVTS();
     void handleMidiMessage (const juce::MidiMessage& msg);
