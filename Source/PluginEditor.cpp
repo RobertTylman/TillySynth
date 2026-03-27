@@ -78,7 +78,7 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
     masterVolumeAttachment = std::make_unique<SliderAttachment> (
         processorRef.getAPVTS(), "master_volume", masterVolumeSlider);
 
-    masterVolumeLabel.setText ("Vol", juce::dontSendNotification);
+    masterVolumeLabel.setText ("Volume", juce::dontSendNotification);
     masterVolumeLabel.setJustificationType (juce::Justification::centredRight);
     masterVolumeLabel.setFont (juce::Font (juce::FontOptions (10.0f)));
     addAndMakeVisible (masterVolumeLabel);
