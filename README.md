@@ -1,4 +1,5 @@
 <div align="center">
+  <img src="docs/assets/logo.png" width="400" alt="TillySynth Logo">
   <h1>TillySynth</h1>
   <p><strong>The Warmth of Analogue, Driven by the Pulse of Your Machine.</strong></p>
 
@@ -6,6 +7,10 @@
   [![C++ 17](https://img.shields.io/badge/C%2B%2B-17-orange.svg)](https://en.cppreference.com/w/cpp/17)
   [![Platform: macOS / Windows](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows-lightgrey.svg)]()
   [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+</div>
+
+<div align="center">
+  <img src="docs/assets/screenshot.png" width="800" alt="TillySynth Interface">
 </div>
 
 ---
