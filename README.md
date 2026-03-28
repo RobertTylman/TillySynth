@@ -1,5 +1,4 @@
 <div align="center">
-  <img src="docs/assets/logo.png" width="400" alt="TillySynth Logo">
   <h1>TillySynth</h1>
   <p><strong>The Warmth of Analogue, Driven by the Pulse of Your Machine.</strong></p>
 
