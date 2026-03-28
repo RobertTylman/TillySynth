@@ -1,4 +1,5 @@
 #pragma once
+#include <juce_core/juce_core.h>
 #include <memory>
 
 namespace tillysynth
@@ -6,14 +7,18 @@ namespace tillysynth
 
 struct DriftSensorData
 {
-    // Accelerometer magnitude delta from gravity baseline (0 = still, higher = movement)
-    float motionIntensity = 0.0f;
+    // System CPU load normalised 0–1 (provides fast, variable drift signal)
+    float cpuLoad = 0.0f;
 
-    // Battery discharge rate normalised to 0–1 (0 = charging/full, 1 = draining fast)
+    // Thermal pressure normalised 0–1 (slow drift correlated with system heat)
+    float thermalPressure = 0.0f;
+
+    // Battery discharge rate normalised 0–1 (0 = charging/full, 1 = draining fast)
     float batteryDrainRate = 0.0f;
 
     // Whether real sensor data was available
-    bool motionAvailable = false;
+    bool cpuLoadAvailable = false;
+    bool thermalAvailable = false;
     bool batteryAvailable = false;
 };
 

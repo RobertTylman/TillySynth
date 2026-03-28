@@ -132,12 +132,19 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
     driftLabel.setFont (juce::Font (juce::FontOptions (10.0f, juce::Font::bold)));
     driftLabel.setColour (juce::Label::textColourId, Colours::warmAmber.withAlpha (0.7f));
     driftLabel.setInterceptsMouseClicks (true, false);
-    driftLabel.setTooltip ("Analogue drift is generated from device sensor data:\n"
-                           "- Motion (gyro/accelerometer) for fast pitch wobble\n"
-                           "- Battery drain rate for slow thermal drift\n"
-                           "- Falls back to PRNG if no sensors are available\n\n"
-                           "Hover to see live values.");
     addAndMakeVisible (driftLabel);
+
+    // Drift slider in the bar (horizontal, matching header volume style)
+    driftBarKnob.setSliderStyle (juce::Slider::LinearHorizontal);
+    driftBarKnob.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
+    driftBarKnob.setTooltip ("Analogue drift amount");
+    addAndMakeVisible (driftBarKnob);
+    driftBarKnobAttachment = std::make_unique<SliderAttachment> (
+        processorRef.getAPVTS(), "master_analog_drift", driftBarKnob);
+
+    // Initialise drift noise buffer
+    for (auto& n : driftNoise)
+        n = 0.0f;
 
     // Generate panel wear scuffs (normalised 0–1 coordinates, scaled at paint time)
     wearRandom.setSeed (static_cast<juce::int64> (juce::Time::currentTimeMillis()));
@@ -217,7 +224,10 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
     knobs["master_glide"]      = createKnob ("master_glide", "Glide");
     knobs["master_pitch_bend"] = createKnob ("master_pitch_bend", "PB");
     toggles["master_mono_legato"] = createToggle ("master_mono_legato", "Legato");
+    // Drift knob moved to drift bar — create but hide from master section
     knobs["master_analog_drift"]  = createKnob ("master_analog_drift", "Drift");
+    knobs["master_analog_drift"].slider->setVisible (false);
+    knobs["master_analog_drift"].label->setVisible (false);
     knobs["master_unison"]         = createKnob ("master_unison", "Unison");
     knobs["master_unison_detune"]  = createKnob ("master_unison_detune", "UniDet");
 
@@ -479,8 +489,9 @@ void TillySynthEditor::resized()
     masterVolumeLabel.setBounds (getWidth() - 280, 14, 50, 22);
     masterVolumeSlider.setBounds (getWidth() - 230, 14, 100, 22);
 
-    // Drift label (positioned over the drift scope area)
+    // Drift label + slider (positioned over the drift scope area)
     driftLabel.setBounds (6, kHeaderHeight + 2, 92, kDriftBarHeight - 4);
+    driftBarKnob.setBounds (94, kHeaderHeight + 8, 70, kDriftBarHeight - 16);
 
     // Keyboard at the bottom
     keyboard.setBounds (getLocalBounds().removeFromBottom (kKeyboardHeight));
@@ -763,7 +774,6 @@ void TillySynthEditor::layoutMasterSection (juce::Rectangle<int> area)
     auto row2 = area.removeFromTop (knobH + 4);
 
     placeKnob ("master_pitch_bend", row2);
-    placeKnob ("master_analog_drift", row2);
     placeKnob ("master_unison_detune", row2);
 
     auto col = row2.removeFromLeft (knobW);
@@ -793,7 +803,7 @@ void TillySynthEditor::timerCallback()
 
     // Update drift tooltip with live sensor values
     {
-        auto& drift = processorRef.voiceManager.getDriftEngine();
+        auto& drift = processorRef.getDriftEngine();
 
         float avgPitch = 0.0f, avgCutoff = 0.0f;
         for (int i = 0; i < 16; ++i)
@@ -804,26 +814,41 @@ void TillySynthEditor::timerCallback()
         avgPitch  /= 16.0f;
         avgCutoff /= 16.0f;
 
-        bool motionOk  = drift.isMotionAvailable();
+        bool cpuOk     = drift.isCpuLoadAvailable();
+        bool thermalOk = drift.isThermalAvailable();
         bool batteryOk = drift.isBatteryAvailable();
-        float motion   = drift.getMotionIntensity();
+        float cpu      = drift.getCpuLoad();
+        float thermal  = drift.getThermalPressure();
         float battery  = drift.getBatteryDrainRate();
+        bool noSensors = !cpuOk && !thermalOk && !batteryOk;
 
         juce::String tip;
         tip << "ANALOGUE DRIFT ENGINE\n\n"
-            << "Drift is generated from real-world sensor data to\n"
-            << "create unique, organic pitch and filter variations.\n\n"
+            << "Generates organic pitch and filter drift from\n"
+            << "real hardware sensor data — every performance\n"
+            << "is unique to your machine's state.\n\n"
             << "Sources:\n"
-            << "  Motion (gyro/accel): " << (motionOk ? "active" : "unavailable") << "\n"
-            << "  Battery drain rate:  " << (batteryOk ? "active" : "unavailable") << "\n"
-            << "  PRNG fallback:       " << ((!motionOk && !batteryOk) ? "active" : "standby") << "\n\n"
-            << "Live values:\n"
-            << "  Motion intensity:   " << juce::String (motion, 3) << "\n"
-            << "  Battery drain:      " << juce::String (battery, 3) << "\n"
-            << "  Avg pitch drift:    " << juce::String (avgPitch, 2) << " cents\n"
-            << "  Avg cutoff drift:   " << juce::String (avgCutoff, 2) << " Hz";
+            << "  CPU load:          " << (cpuOk ? "active" : "unavailable") << "\n"
+            << "  Thermal pressure:  " << (thermalOk ? "active" : "unavailable") << "\n"
+            << "  Battery drain:     " << (batteryOk ? "active" : "n/a (desktop)") << "\n"
+            << "  PRNG seed:         " << (noSensors ? "primary" : "supplementary") << "\n\n"
+            << "Live readings:\n"
+            << "  CPU load:          " << juce::String (static_cast<int> (cpu * 100.0f)) << "%\n"
+            << "  Thermal pressure:  " << juce::String (thermal, 2) << "\n"
+            << "  Battery drain:     " << juce::String (battery, 3) << "\n"
+            << "  Avg pitch drift:   " << juce::String (avgPitch, 2) << " cents\n"
+            << "  Avg cutoff drift:  " << juce::String (avgCutoff, 2) << " Hz";
 
         driftLabel.setTooltip (tip);
+
+        // Evolve drift noise buffer for idle oscilloscope fluctuation
+        float driftAmount = processorRef.getAPVTS().getRawParameterValue ("master_analog_drift")->load() / 100.0f;
+        auto& rng = juce::Random::getSystemRandom();
+        for (size_t i = 0; i < driftNoise.size(); ++i)
+        {
+            float target = (rng.nextFloat() * 2.0f - 1.0f) * 0.06f * driftAmount;
+            driftNoise[i] = driftNoise[i] * 0.92f + target * 0.08f;
+        }
     }
 
     repaint();
@@ -841,6 +866,14 @@ void TillySynthEditor::drawHeader (juce::Graphics& g, juce::Rectangle<int> bound
 
     // "Robbie Tylman" is rendered via authorLink HyperlinkButton (positioned in resized)
 
+    // Scale percentage (next to TillySynth title)
+    int scalePercent = static_cast<int> (std::round (
+        100.0f * static_cast<float> (getWidth()) / static_cast<float> (kWindowWidth)));
+    g.setColour (Colours::labelText.withAlpha (0.35f));
+    g.setFont (juce::Font (juce::FontOptions (10.0f)));
+    g.drawText (juce::String (scalePercent) + "%", bounds.withTrimmedLeft (180).withWidth (40),
+                juce::Justification::centredLeft);
+
     // Bottom line
     g.setColour (Colours::warmAmber.withAlpha (0.4f));
     g.drawLine (static_cast<float> (bounds.getX()), static_cast<float> (bounds.getBottom()),
@@ -857,13 +890,12 @@ void TillySynthEditor::drawDriftScope (juce::Graphics& g, juce::Rectangle<int> b
     g.drawLine (static_cast<float> (bounds.getX()), static_cast<float> (bounds.getY()),
                 static_cast<float> (bounds.getRight()), static_cast<float> (bounds.getY()), 0.5f);
 
-    // Label is rendered by the driftLabel component (with interactive tooltip)
-
-    // Draw oscilloscope waveform (equal padding on both sides)
-    float labelEnd = 94.0f;
+    // Layout: [label 92px][slider 70px][pad][oscilloscope][pad][sensor readout right-aligned]
+    float labelEnd = 168.0f; // label + slider
+    float sensorWidth = 80.0f;
     float pad = 6.0f;
     float scopeX = static_cast<float> (bounds.getX()) + labelEnd + pad;
-    float scopeW = static_cast<float> (bounds.getWidth()) - labelEnd - pad * 2.0f;
+    float scopeW = static_cast<float> (bounds.getWidth()) - labelEnd - sensorWidth - pad * 2.0f;
     float scopeY = static_cast<float> (bounds.getY()) + 3.0f;
     float scopeH = static_cast<float> (bounds.getHeight()) - 6.0f;
     float centreY = scopeY + scopeH * 0.5f;
@@ -880,7 +912,7 @@ void TillySynthEditor::drawDriftScope (juce::Graphics& g, juce::Rectangle<int> b
         g.drawLine (qx, scopeY, qx, scopeY + scopeH, 0.5f);
     }
 
-    // Draw waveform
+    // Draw waveform with drift noise added when idle
     juce::Path wavePath;
     int numPoints = TillySynthProcessor::kScopeBufferSize;
     float xStep = scopeW / static_cast<float> (numPoints - 1);
@@ -888,7 +920,11 @@ void TillySynthEditor::drawDriftScope (juce::Graphics& g, juce::Rectangle<int> b
     for (int i = 0; i < numPoints; ++i)
     {
         float sample = scopeSnapshot[static_cast<size_t> (i)];
-        sample = juce::jlimit (-1.0f, 1.0f, sample * 4.0f); // amplify for visibility
+        sample = juce::jlimit (-1.0f, 1.0f, sample * 4.0f);
+
+        // Add drift noise fluctuation so the line never sits perfectly still
+        sample += driftNoise[static_cast<size_t> (i)];
+
         float px = scopeX + static_cast<float> (i) * xStep;
         float py = centreY - sample * scopeH * 0.45f;
 
@@ -901,6 +937,22 @@ void TillySynthEditor::drawDriftScope (juce::Graphics& g, juce::Rectangle<int> b
     g.setColour (Colours::warmAmber.withAlpha (0.8f));
     g.strokePath (wavePath, juce::PathStrokeType (1.2f));
 
+    // Sensor readout on the right side of the oscilloscope
+    auto& drift = processorRef.getDriftEngine();
+    float cpu = drift.getCpuLoad();
+    float thermal = drift.getThermalPressure();
+
+    float readoutX = static_cast<float> (bounds.getRight()) - sensorWidth - 4.0f;
+    float readoutY = static_cast<float> (bounds.getY()) + 2.0f;
+
+    g.setFont (juce::Font (juce::FontOptions (9.0f)));
+    g.setColour (Colours::warmAmber.withAlpha (0.5f));
+    g.drawText ("CPU " + juce::String (static_cast<int> (cpu * 100.0f)) + "%",
+                juce::Rectangle<float> (readoutX, readoutY, sensorWidth, 14.0f),
+                juce::Justification::centredRight);
+    g.drawText ("TMP " + juce::String (thermal, 2),
+                juce::Rectangle<float> (readoutX, readoutY + 14.0f, sensorWidth, 14.0f),
+                juce::Justification::centredRight);
 }
 
 void TillySynthEditor::drawSectionBackground (juce::Graphics& g, juce::Rectangle<int> bounds,

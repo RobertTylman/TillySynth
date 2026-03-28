@@ -1,9 +1,10 @@
 #include "DriftSensorReader.h"
 
 #if JUCE_MAC
-    #import <CoreMotion/CoreMotion.h>
+    #import <Foundation/Foundation.h>
     #import <IOKit/ps/IOPowerSources.h>
     #import <IOKit/ps/IOPSKeys.h>
+    #include <mach/mach.h>
     #include <cmath>
 #endif
 
@@ -14,86 +15,89 @@ namespace tillysynth
 
 struct DriftSensorReader::Impl
 {
-    CMMotionManager* motionManager = nil;
-    NSOperationQueue* motionQueue = nil;
+    bool running = false;
 
-    bool motionRunning = false;
+    // CPU load tracking
+    uint64_t prevUserTicks = 0;
+    uint64_t prevSystemTicks = 0;
+    uint64_t prevIdleTicks = 0;
+    uint64_t prevNiceTicks = 0;
+    float smoothedCpuLoad = 0.0f;
 
-    // Smoothed accelerometer values
-    float lastAccelMagnitude = 1.0f;  // gravity = ~1.0
-    float smoothedMotionIntensity = 0.0f;
+    // Thermal tracking
+    float smoothedThermal = 0.0f;
 
     // Battery tracking
     float lastBatteryLevel = -1.0f;
     float smoothedDrainRate = 0.0f;
     uint64_t lastBatteryReadTime = 0;
 
-    void startMotion()
+    float readCpuLoad()
     {
-        motionManager = [[CMMotionManager alloc] init];
+        host_cpu_load_info_data_t cpuInfo;
+        mach_msg_type_number_t count = HOST_CPU_LOAD_INFO_COUNT;
 
-        if (! motionManager.accelerometerAvailable)
-            return;
+        kern_return_t result = host_statistics (mach_host_self(), HOST_CPU_LOAD_INFO,
+                                                 reinterpret_cast<host_info_t> (&cpuInfo), &count);
 
-        motionManager.accelerometerUpdateInterval = 0.1;  // 10 Hz
-        motionQueue = [[NSOperationQueue alloc] init];
-        motionQueue.maxConcurrentOperationCount = 1;
+        if (result != KERN_SUCCESS)
+            return smoothedCpuLoad;
 
-        [motionManager startAccelerometerUpdatesToQueue:motionQueue
-            withHandler:^(CMAccelerometerData* data, NSError* error)
-            {
-                if (error != nil || data == nil)
-                    return;
+        uint64_t user   = cpuInfo.cpu_ticks[CPU_STATE_USER];
+        uint64_t system = cpuInfo.cpu_ticks[CPU_STATE_SYSTEM];
+        uint64_t idle   = cpuInfo.cpu_ticks[CPU_STATE_IDLE];
+        uint64_t nice   = cpuInfo.cpu_ticks[CPU_STATE_NICE];
 
-                float x = static_cast<float> (data.acceleration.x);
-                float y = static_cast<float> (data.acceleration.y);
-                float z = static_cast<float> (data.acceleration.z);
+        uint64_t totalDelta = (user - prevUserTicks) + (system - prevSystemTicks)
+                            + (idle - prevIdleTicks) + (nice - prevNiceTicks);
 
-                float magnitude = std::sqrt (x * x + y * y + z * z);
-
-                // Delta from gravity baseline captures vibrations and movement
-                float delta = std::abs (magnitude - lastAccelMagnitude);
-                lastAccelMagnitude = magnitude;
-
-                // Exponential smoothing for organic feel
-                smoothedMotionIntensity = smoothedMotionIntensity * 0.85f + delta * 0.15f;
-            }];
-
-        motionRunning = true;
-    }
-
-    void stopMotion()
-    {
-        if (motionRunning && motionManager != nil)
+        float load = 0.0f;
+        if (totalDelta > 0 && prevUserTicks > 0)
         {
-            [motionManager stopAccelerometerUpdates];
-            motionRunning = false;
+            uint64_t activeDelta = (user - prevUserTicks) + (system - prevSystemTicks)
+                                 + (nice - prevNiceTicks);
+            load = static_cast<float> (activeDelta) / static_cast<float> (totalDelta);
         }
 
-        motionManager = nil;
-        motionQueue = nil;
+        prevUserTicks   = user;
+        prevSystemTicks = system;
+        prevIdleTicks   = idle;
+        prevNiceTicks   = nice;
+
+        // Smooth for organic feel
+        smoothedCpuLoad = smoothedCpuLoad * 0.8f + load * 0.2f;
+        return smoothedCpuLoad;
     }
 
-    float readMotionIntensity()
+    float readThermalPressure()
     {
-        if (! motionRunning)
-            return 0.0f;
+        // NSProcessInfo.thermalState available on macOS 10.10.3+
+        NSProcessInfoThermalState state = [[NSProcessInfo processInfo] thermalState];
 
-        // Clamp to useful range: tiny desk vibrations to deliberate shakes
-        return std::min (smoothedMotionIntensity * 10.0f, 1.0f);
+        float pressure = 0.0f;
+        switch (state)
+        {
+            case NSProcessInfoThermalStateNominal:  pressure = 0.1f;  break;
+            case NSProcessInfoThermalStateFair:      pressure = 0.4f;  break;
+            case NSProcessInfoThermalStateSerious:   pressure = 0.7f;  break;
+            case NSProcessInfoThermalStateCritical:  pressure = 1.0f;  break;
+        }
+
+        smoothedThermal = smoothedThermal * 0.9f + pressure * 0.1f;
+        return smoothedThermal;
     }
 
     float readBatteryDrainRate()
     {
         CFTypeRef info = IOPSCopyPowerSourcesInfo();
         if (info == nullptr)
-            return 0.0f;
+            return smoothedDrainRate;
 
         CFArrayRef sources = IOPSCopyPowerSourcesList (info);
         if (sources == nullptr)
         {
             CFRelease (info);
-            return 0.0f;
+            return smoothedDrainRate;
         }
 
         float drainRate = 0.0f;
@@ -108,7 +112,6 @@ struct DriftSensorReader::Impl
             if (source == nullptr)
                 continue;
 
-            // Read current capacity
             CFNumberRef capacityRef = static_cast<CFNumberRef> (
                 CFDictionaryGetValue (source, CFSTR (kIOPSCurrentCapacityKey)));
             CFNumberRef maxCapacityRef = static_cast<CFNumberRef> (
@@ -135,14 +138,10 @@ struct DriftSensorReader::Impl
 
                 if (elapsed > 0.5f)
                 {
-                    // Discharge per second, scaled up for sensitivity
                     float rawRate = (lastBatteryLevel - currentLevel) / elapsed;
-
-                    // Normalise: typical laptop drains ~0.01% per second under load
                     float normRate = std::abs (rawRate) * 5000.0f;
                     normRate = std::min (normRate, 1.0f);
 
-                    // Smooth to avoid jumps
                     smoothedDrainRate = smoothedDrainRate * 0.9f + normRate * 0.1f;
                     drainRate = smoothedDrainRate;
                     found = true;
@@ -163,12 +162,12 @@ struct DriftSensorReader::Impl
 
 #else
 
-// Non-macOS fallback: no real sensors
+// Non-macOS fallback
 struct DriftSensorReader::Impl
 {
-    void startMotion() {}
-    void stopMotion() {}
-    float readMotionIntensity() { return 0.0f; }
+    bool running = false;
+    float readCpuLoad() { return 0.0f; }
+    float readThermalPressure() { return 0.0f; }
     float readBatteryDrainRate() { return 0.0f; }
 };
 
@@ -183,23 +182,29 @@ DriftSensorReader::~DriftSensorReader() = default;
 
 void DriftSensorReader::start()
 {
-    pimpl->startMotion();
+    pimpl->running = true;
 }
 
 void DriftSensorReader::stop()
 {
-    pimpl->stopMotion();
+    pimpl->running = false;
 }
 
 DriftSensorData DriftSensorReader::read()
 {
     DriftSensorData data;
 
-    data.motionIntensity = pimpl->readMotionIntensity();
+    if (! pimpl->running)
+        return data;
+
+    data.cpuLoad = pimpl->readCpuLoad();
+    data.thermalPressure = pimpl->readThermalPressure();
     data.batteryDrainRate = pimpl->readBatteryDrainRate();
 
 #if JUCE_MAC
-    data.motionAvailable = pimpl->motionRunning;
+    // CPU load and thermal are always available on macOS
+    data.cpuLoadAvailable = true;
+    data.thermalAvailable = true;
     data.batteryAvailable = (pimpl->lastBatteryLevel >= 0.0f);
 #endif
 

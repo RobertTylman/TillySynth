@@ -26,9 +26,11 @@ public:
     float getCutoffDriftHz (int voiceIndex) const;
 
     // Sensor state for UI display
-    bool isMotionAvailable() const { return lastMotionAvailable.load(); }
+    bool isCpuLoadAvailable() const { return lastCpuLoadAvailable.load(); }
+    bool isThermalAvailable() const { return lastThermalAvailable.load(); }
     bool isBatteryAvailable() const { return lastBatteryAvailable.load(); }
-    float getMotionIntensity() const { return lastMotionIntensity.load(); }
+    float getCpuLoad() const { return lastCpuLoad.load(); }
+    float getThermalPressure() const { return lastThermalPressure.load(); }
     float getBatteryDrainRate() const { return lastBatteryDrainRate.load(); }
 
 private:
@@ -45,9 +47,11 @@ private:
     std::array<float, kMaxVoices> driftSeeds {};
 
     // Cached sensor state for UI access
-    std::atomic<bool> lastMotionAvailable { false };
+    std::atomic<bool> lastCpuLoadAvailable { false };
+    std::atomic<bool> lastThermalAvailable { false };
     std::atomic<bool> lastBatteryAvailable { false };
-    std::atomic<float> lastMotionIntensity { 0.0f };
+    std::atomic<float> lastCpuLoad { 0.0f };
+    std::atomic<float> lastThermalPressure { 0.0f };
     std::atomic<float> lastBatteryDrainRate { 0.0f };
 
     DriftSensorReader sensorReader;

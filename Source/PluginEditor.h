@@ -88,8 +88,15 @@ private:
     // Drift scope label (interactive tooltip)
     juce::Label driftLabel;
 
+    // Drift knob in the drift bar
+    juce::Slider driftBarKnob;
+    std::unique_ptr<SliderAttachment> driftBarKnobAttachment;
+
     // Scope buffer snapshot for oscilloscope display
     std::array<float, 512> scopeSnapshot {};
+
+    // Drift noise buffer for idle oscilloscope fluctuation
+    std::array<float, 512> driftNoise {};
 
     // VU meter values with analogue ballistics
     float vuLeft = 0.0f, vuRight = 0.0f;
@@ -102,8 +109,8 @@ private:
     juce::HyperlinkButton authorLink { "Robbie Tylman",
         juce::URL ("https://roberttylman.github.io/portfolio-site/") };
 
-    // Tooltip window for parameter descriptions
-    juce::TooltipWindow tooltipWindow { this, 1500 };
+    // Tooltip window for parameter descriptions (instant on hover)
+    juce::TooltipWindow tooltipWindow { this, 200 };
 
     // UI components stored by param ID
     std::map<juce::String, KnobWithLabel> knobs;

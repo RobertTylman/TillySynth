@@ -77,22 +77,30 @@ void AnalogueDriftEngine::timerCallback()
 void AnalogueDriftEngine::updateDriftValues (const DriftSensorData& sensorData)
 {
     // Cache sensor state for UI display
-    lastMotionAvailable.store (sensorData.motionAvailable);
+    lastCpuLoadAvailable.store (sensorData.cpuLoadAvailable);
+    lastThermalAvailable.store (sensorData.thermalAvailable);
     lastBatteryAvailable.store (sensorData.batteryAvailable);
-    lastMotionIntensity.store (sensorData.motionIntensity);
+    lastCpuLoad.store (sensorData.cpuLoad);
+    lastThermalPressure.store (sensorData.thermalPressure);
     lastBatteryDrainRate.store (sensorData.batteryDrainRate);
 
     float amount = driftAmount.load();
 
-    // Blend motion and battery into a combined environmental signal.
-    // Motion (gyro/accelerometer) provides fast, transient variation.
-    // Battery drain rate provides slow, thermal-correlated drift.
-    float motionSignal = sensorData.motionAvailable ? sensorData.motionIntensity : 0.0f;
+    // CPU load provides fast, variable drift (like component-level instability)
+    // Thermal pressure provides slow drift (like warming capacitors)
+    // Battery drain provides very slow drift (thermal correlation on laptops)
+    float cpuSignal = sensorData.cpuLoadAvailable ? sensorData.cpuLoad : 0.0f;
+    float thermalSignal = sensorData.thermalAvailable ? sensorData.thermalPressure : 0.0f;
     float batterySignal = sensorData.batteryAvailable ? sensorData.batteryDrainRate : 0.0f;
 
-    // If neither sensor is available, fall back to pure PRNG
-    bool hasSensors = sensorData.motionAvailable || sensorData.batteryAvailable;
-    float envSignal = hasSensors ? (motionSignal * 0.6f + batterySignal * 0.4f) : 0.5f;
+    // Combine available signals; always have some base drift via PRNG
+    bool hasSensors = sensorData.cpuLoadAvailable || sensorData.thermalAvailable
+                   || sensorData.batteryAvailable;
+
+    // Environmental signal: weighted blend of available sources
+    float envSignal = hasSensors
+        ? (cpuSignal * 0.5f + thermalSignal * 0.3f + batterySignal * 0.2f)
+        : 0.5f;
 
     for (size_t i = 0; i < static_cast<size_t> (kMaxVoices); ++i)
     {
@@ -102,21 +110,23 @@ void AnalogueDriftEngine::updateDriftValues (const DriftSensorData& sensorData)
         // Per-voice seed evolves slowly, modulated by the environmental signal
         float seedPhase = std::sin (driftSeeds[i] + envSignal * 3.0f);
 
-        // Motion creates faster pitch wobble; battery creates slower cutoff wander
-        float motionComponent = motionSignal * std::sin (driftSeeds[i] * 7.3f);
-        float batteryComponent = batterySignal * std::cos (driftSeeds[i] * 2.1f);
+        // CPU load creates faster pitch wobble (like oscillator instability under heat)
+        float cpuComponent = cpuSignal * std::sin (driftSeeds[i] * 7.3f);
 
-        float pitchDrift = (noise * 0.3f + seedPhase * 0.3f + motionComponent * 0.4f)
+        // Thermal creates slow cutoff wander (like drifting capacitor values)
+        float thermalComponent = thermalSignal * std::cos (driftSeeds[i] * 2.1f);
+
+        float pitchDrift = (noise * 0.3f + seedPhase * 0.3f + cpuComponent * 0.4f)
                          * kMaxPitchDriftCents * amount;
 
-        float cutoffDrift = (noise * 0.2f + seedPhase * 0.3f + batteryComponent * 0.5f)
+        float cutoffDrift = (noise * 0.2f + seedPhase * 0.3f + thermalComponent * 0.5f)
                           * kMaxCutoffDriftHz * amount;
 
         pitchDrifts[i].store (pitchDrift);
         cutoffDrifts[i].store (cutoffDrift);
 
-        // Slowly evolve the seeds — rate influenced by motion for liveliness
-        driftSeeds[i] += 0.01f + motionSignal * 0.02f;
+        // Slowly evolve the seeds — rate influenced by CPU load for liveliness
+        driftSeeds[i] += 0.01f + cpuSignal * 0.02f;
     }
 }
 

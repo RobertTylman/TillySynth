@@ -44,6 +44,9 @@ public:
     juce::MidiKeyboardState& getKeyboardState() { return keyboardState; }
     PresetManager& getPresetManager() { return presetManager; }
 
+    // Access drift engine for sensor state queries
+    AnalogueDriftEngine& getDriftEngine() { return voiceManager.getDriftEngine(); }
+
     // Drift values exposed for UI visualisation (atomic for thread-safe reading)
     std::array<std::atomic<float>, 16> driftVisPitch {};
     std::array<std::atomic<float>, 16> driftVisCutoff {};
