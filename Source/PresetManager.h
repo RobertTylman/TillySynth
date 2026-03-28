@@ -26,12 +26,22 @@ public:
 
     juce::StringArray getPresetNames() const;
 
+    void saveUserPreset (const juce::String& name);
+    void deleteUserPreset (int index);
+    bool isUserPreset (int index) const;
+    int getFactoryPresetCount() const { return factoryPresetCount; }
+
+    void refreshUserPresets();
+
 private:
     void buildFactoryPresets();
+    void loadUserPresets();
+    juce::File getUserPresetDirectory() const;
 
     juce::AudioProcessorValueTreeState& apvts;
     std::vector<Preset> presets;
     int currentPreset = -1;
+    int factoryPresetCount = 0;
 };
 
 } // namespace tillysynth

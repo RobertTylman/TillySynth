@@ -26,6 +26,8 @@ void SubtractiveFilter::reset()
 {
     filter1.reset();
     filter2.reset();
+    smoothedCutoffHz = targetCutoffHz;
+    updateCounter = 0;
 }
 
 float SubtractiveFilter::processSample (float input)

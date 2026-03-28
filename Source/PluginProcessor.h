@@ -74,6 +74,7 @@ private:
 
     VoiceManager voiceManager;
     ChorusEngine chorus;
+    juce::dsp::Reverb reverb;
 
     PresetManager presetManager;
     juce::SmoothedValue<float> masterVolume;

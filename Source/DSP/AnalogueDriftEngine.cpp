@@ -76,6 +76,12 @@ void AnalogueDriftEngine::timerCallback()
 
 void AnalogueDriftEngine::updateDriftValues (const DriftSensorData& sensorData)
 {
+    // Cache sensor state for UI display
+    lastMotionAvailable.store (sensorData.motionAvailable);
+    lastBatteryAvailable.store (sensorData.batteryAvailable);
+    lastMotionIntensity.store (sensorData.motionIntensity);
+    lastBatteryDrainRate.store (sensorData.batteryDrainRate);
+
     float amount = driftAmount.load();
 
     // Blend motion and battery into a combined environmental signal.

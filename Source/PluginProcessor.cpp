@@ -20,6 +20,13 @@ void TillySynthProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     voiceManager.prepare (sampleRate, samplesPerBlock);
     chorus.prepare (sampleRate, samplesPerBlock);
+
+    juce::dsp::ProcessSpec reverbSpec;
+    reverbSpec.sampleRate = sampleRate;
+    reverbSpec.maximumBlockSize = static_cast<juce::uint32> (samplesPerBlock);
+    reverbSpec.numChannels = 2;
+    reverb.prepare (reverbSpec);
+
     masterVolume.reset (sampleRate, 0.02);
 }
 
@@ -27,6 +34,7 @@ void TillySynthProcessor::releaseResources()
 {
     voiceManager.reset();
     chorus.reset();
+    reverb.reset();
 }
 
 void TillySynthProcessor::processBlock (juce::AudioBuffer<float>& buffer,
@@ -75,6 +83,11 @@ void TillySynthProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // Chorus (post-voice processing)
     chorus.process (buffer);
 
+    // Reverb (post-chorus)
+    juce::dsp::AudioBlock<float> reverbBlock (buffer);
+    juce::dsp::ProcessContextReplacing<float> reverbCtx (reverbBlock);
+    reverb.process (reverbCtx);
+
     // Fill scope buffer (downsample to fit)
     {
         int writePos = scopeWritePos.load();
@@ -109,6 +122,16 @@ void TillySynthProcessor::updateParametersFromAPVTS()
     auto getInt   = [this] (const char* id) { return static_cast<int> (apvts.getRawParameterValue (id)->load()); };
     auto getBool  = [this] (const char* id) { return apvts.getRawParameterValue (id)->load() > 0.5f; };
 
+    // Master unison applies to both oscillators
+    int masterUni = getInt (ParamIDs::masterUnison);
+    float masterUniDetune = getFloat (ParamIDs::masterUnisonDetune);
+
+    // Use the higher of per-osc or master unison; add detune values
+    int osc1Uni = std::max (getInt (ParamIDs::osc1UnisonVoices), masterUni);
+    int osc2Uni = std::max (getInt (ParamIDs::osc2UnisonVoices), masterUni);
+    float osc1Det = getFloat (ParamIDs::osc1UnisonDetune) + (masterUni > 1 ? masterUniDetune : 0.0f);
+    float osc2Det = getFloat (ParamIDs::osc2UnisonDetune) + (masterUni > 1 ? masterUniDetune : 0.0f);
+
     // Oscillator 1
     voiceManager.updateOsc1Params (
         static_cast<Waveform> (getInt (ParamIDs::osc1Waveform)),
@@ -117,8 +140,7 @@ void TillySynthProcessor::updateParametersFromAPVTS()
         getFloat (ParamIDs::osc1FineTune),
         getFloat (ParamIDs::osc1Level) / 100.0f,
         getFloat (ParamIDs::osc1PulseWidth) / 100.0f,
-        getInt (ParamIDs::osc1UnisonVoices),
-        getFloat (ParamIDs::osc1UnisonDetune),
+        osc1Uni, osc1Det,
         getFloat (ParamIDs::osc1UnisonBlend) / 100.0f);
 
     // Oscillator 2
@@ -129,8 +151,7 @@ void TillySynthProcessor::updateParametersFromAPVTS()
         getFloat (ParamIDs::osc2FineTune),
         getFloat (ParamIDs::osc2Level) / 100.0f,
         getFloat (ParamIDs::osc2PulseWidth) / 100.0f,
-        getInt (ParamIDs::osc2UnisonVoices),
-        getFloat (ParamIDs::osc2UnisonDetune),
+        osc2Uni, osc2Det,
         getFloat (ParamIDs::osc2UnisonBlend) / 100.0f);
 
     // Amp envelopes
@@ -177,6 +198,17 @@ void TillySynthProcessor::updateParametersFromAPVTS()
     chorus.setMode (static_cast<ChorusMode> (getInt (ParamIDs::chorusMode)));
     chorus.setRate (getFloat (ParamIDs::chorusRate));
     chorus.setDepth (getFloat (ParamIDs::chorusDepth) / 100.0f);
+
+    // Reverb
+    {
+        juce::dsp::Reverb::Parameters reverbParams;
+        reverbParams.roomSize   = getFloat (ParamIDs::reverbSize) / 100.0f;
+        reverbParams.damping    = getFloat (ParamIDs::reverbDamping) / 100.0f;
+        reverbParams.wetLevel   = getFloat (ParamIDs::reverbMix) / 100.0f;
+        reverbParams.dryLevel   = 1.0f - reverbParams.wetLevel;
+        reverbParams.width      = getFloat (ParamIDs::reverbWidth) / 100.0f;
+        reverb.setParameters (reverbParams);
+    }
 
     // Master
     masterVolume.setTargetValue (getFloat (ParamIDs::masterVolume) / 100.0f * 0.25f);

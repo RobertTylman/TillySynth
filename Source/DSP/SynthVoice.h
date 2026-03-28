@@ -47,7 +47,7 @@ public:
     void setGlideTime (float glideMs);
 
 private:
-    float calculateFrequency (int note, int octave, int semitone, float fineCents,
+    float calculateFrequency (float note, int octave, int semitone, float fineCents,
                               float pitchMod, float driftCents) const;
 
     Oscillator osc1;
@@ -77,6 +77,10 @@ private:
     float filterVelocitySens = 0.0f;
 
     double sampleRate = 44100.0;
+
+    // Glide / portamento
+    float glideCoeff = 1.0f;
+    float currentGlideNote = -1.0f;
 
     // Voice stealing fade-out
     bool stealing = false;

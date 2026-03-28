@@ -72,6 +72,12 @@ namespace ParamIDs
     inline constexpr const char* chorusRate        = "chorus_rate";
     inline constexpr const char* chorusDepth       = "chorus_depth";
 
+    // Reverb
+    inline constexpr const char* reverbSize        = "reverb_size";
+    inline constexpr const char* reverbDamping     = "reverb_damping";
+    inline constexpr const char* reverbMix         = "reverb_mix";
+    inline constexpr const char* reverbWidth       = "reverb_width";
+
     // Master
     inline constexpr const char* masterVolume      = "master_volume";
     inline constexpr const char* masterPolyphony   = "master_polyphony";
@@ -79,6 +85,8 @@ namespace ParamIDs
     inline constexpr const char* masterPitchBend   = "master_pitch_bend";
     inline constexpr const char* masterMonoLegato  = "master_mono_legato";
     inline constexpr const char* masterAnalogDrift  = "master_analog_drift";
+    inline constexpr const char* masterUnison       = "master_unison";
+    inline constexpr const char* masterUnisonDetune = "master_unison_detune";
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();

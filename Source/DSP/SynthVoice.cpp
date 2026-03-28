@@ -50,6 +50,12 @@ void SynthVoice::noteOn (int midiNote, float velocity, bool legatoRetrigger)
         return;
     }
 
+    // Set glide starting point from previous note if glide is active
+    if (glideCoeff < 1.0f && currentNote >= 0)
+        currentGlideNote = static_cast<float> (currentNote);
+    else
+        currentGlideNote = static_cast<float> (midiNote);
+
     currentNote = midiNote;
     currentVelocity = velocity;
     noteHeld = true;
@@ -109,9 +115,16 @@ float SynthVoice::processSample (float lfoFilterMod, float lfoPitchMod,
         }
     }
 
-    float freq1 = calculateFrequency (currentNote, osc1Octave, osc1Semitone,
+    // Apply glide (portamento) — smoothly interpolate the note number
+    float targetNote = static_cast<float> (currentNote);
+    if (currentGlideNote < 0.0f)
+        currentGlideNote = targetNote;
+    else
+        currentGlideNote += (targetNote - currentGlideNote) * glideCoeff;
+
+    float freq1 = calculateFrequency (currentGlideNote, osc1Octave, osc1Semitone,
                                        osc1FineTune, lfoPitchMod, driftPitchCents);
-    float freq2 = calculateFrequency (currentNote, osc2Octave, osc2Semitone,
+    float freq2 = calculateFrequency (currentGlideNote, osc2Octave, osc2Semitone,
                                        osc2FineTune, lfoPitchMod, driftPitchCents);
 
     osc1.setFrequency (freq1);
@@ -225,15 +238,21 @@ void SynthVoice::setFilterParams (FilterMode mode, bool is24dB, float cutoffHz, 
     filterVelocitySens = velocity01;
 }
 
-void SynthVoice::setGlideTime (float /*glideMs*/)
+void SynthVoice::setGlideTime (float glideMs)
 {
-    // Glide handled at VoiceManager level for note transitions
+    if (glideMs <= 0.0f)
+        glideCoeff = 1.0f;
+    else
+    {
+        float samples = static_cast<float> (glideMs * 0.001f * sampleRate);
+        glideCoeff = 1.0f - std::exp (-4.0f / samples);
+    }
 }
 
-float SynthVoice::calculateFrequency (int note, int octave, int semitone, float fineCents,
+float SynthVoice::calculateFrequency (float note, int octave, int semitone, float fineCents,
                                        float pitchMod, float driftCents) const
 {
-    float totalSemitones = static_cast<float> (note)
+    float totalSemitones = note
                          + static_cast<float> (octave * 12)
                          + static_cast<float> (semitone);
 

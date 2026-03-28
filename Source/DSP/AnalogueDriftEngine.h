@@ -25,6 +25,12 @@ public:
     float getPitchDriftCents (int voiceIndex) const;
     float getCutoffDriftHz (int voiceIndex) const;
 
+    // Sensor state for UI display
+    bool isMotionAvailable() const { return lastMotionAvailable.load(); }
+    bool isBatteryAvailable() const { return lastBatteryAvailable.load(); }
+    float getMotionIntensity() const { return lastMotionIntensity.load(); }
+    float getBatteryDrainRate() const { return lastBatteryDrainRate.load(); }
+
 private:
     void timerCallback() override;
     void updateDriftValues (const DriftSensorData& sensorData);
@@ -37,6 +43,12 @@ private:
 
     // Per-voice random seeds for unique drift character
     std::array<float, kMaxVoices> driftSeeds {};
+
+    // Cached sensor state for UI access
+    std::atomic<bool> lastMotionAvailable { false };
+    std::atomic<bool> lastBatteryAvailable { false };
+    std::atomic<float> lastMotionIntensity { 0.0f };
+    std::atomic<float> lastBatteryDrainRate { 0.0f };
 
     DriftSensorReader sensorReader;
     juce::Random random;

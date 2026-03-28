@@ -35,30 +35,7 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
     addAndMakeVisible (keyboard);
 
     // Preset selector with category submenus
-    {
-        auto& pm = processorRef.getPresetManager();
-        auto* rootMenu = presetSelector.getRootMenu();
-
-        // Group presets by category
-        juce::StringArray categories;
-        for (int i = 0; i < pm.getNumPresets(); ++i)
-        {
-            auto cat = pm.getPresetCategory (i);
-            if (! categories.contains (cat))
-                categories.add (cat);
-        }
-
-        for (const auto& cat : categories)
-        {
-            juce::PopupMenu subMenu;
-            for (int i = 0; i < pm.getNumPresets(); ++i)
-            {
-                if (pm.getPresetCategory (i) == cat)
-                    subMenu.addItem (i + 1, pm.getPresetName (i));
-            }
-            rootMenu->addSubMenu (cat, subMenu);
-        }
-    }
+    rebuildPresetMenu();
 
     presetSelector.setTextWhenNothingSelected ("Select Preset...");
     presetSelector.onChange = [this]
@@ -91,6 +68,53 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
     };
     addAndMakeVisible (presetNext);
 
+    presetSave.setButtonText ("Save");
+    presetSave.setTooltip ("Save current settings as a user preset");
+    presetSave.onClick = [this]
+    {
+        auto* alert = new juce::AlertWindow ("Save Preset", "Enter a name for your preset:",
+                                              juce::MessageBoxIconType::NoIcon);
+        alert->addTextEditor ("presetName", "", "Preset Name");
+        alert->addButton ("Save", 1, juce::KeyPress (juce::KeyPress::returnKey));
+        alert->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+
+        auto callback = juce::ModalCallbackFunction::create ([this, alert] (int result)
+        {
+            if (result == 1)
+            {
+                auto name = alert->getTextEditorContents ("presetName");
+                if (name.isNotEmpty())
+                {
+                    processorRef.getPresetManager().saveUserPreset (name);
+                    rebuildPresetMenu();
+                }
+            }
+        });
+
+        alert->enterModalState (true, callback, true);
+    };
+    addAndMakeVisible (presetSave);
+
+    presetRandom.setButtonText ("RND");
+    presetRandom.setTooltip ("Load a random preset");
+    presetRandom.onClick = [this]
+    {
+        int total = processorRef.getPresetManager().getNumPresets();
+        if (total > 0)
+        {
+            int randomIdx = juce::Random::getSystemRandom().nextInt (total);
+            presetSelector.setSelectedId (randomIdx + 1);
+        }
+    };
+    addAndMakeVisible (presetRandom);
+
+    // Author link in header
+    authorLink.setFont (juce::Font (juce::FontOptions (12.0f)), false);
+    authorLink.setColour (juce::HyperlinkButton::textColourId,
+                          Colours::labelText.withAlpha (0.6f));
+    authorLink.setTooltip ("Visit Robbie Tylman's portfolio");
+    addAndMakeVisible (authorLink);
+
     // Master volume slider in header
     masterVolumeSlider.setSliderStyle (juce::Slider::LinearHorizontal);
     masterVolumeSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
@@ -102,6 +126,18 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
     masterVolumeLabel.setJustificationType (juce::Justification::centredRight);
     masterVolumeLabel.setFont (juce::Font (juce::FontOptions (10.0f)));
     addAndMakeVisible (masterVolumeLabel);
+
+    // Drift scope label with interactive tooltip
+    driftLabel.setText ("ANALOGUE DRIFT", juce::dontSendNotification);
+    driftLabel.setFont (juce::Font (juce::FontOptions (10.0f, juce::Font::bold)));
+    driftLabel.setColour (juce::Label::textColourId, Colours::warmAmber.withAlpha (0.7f));
+    driftLabel.setInterceptsMouseClicks (true, false);
+    driftLabel.setTooltip ("Analogue drift is generated from device sensor data:\n"
+                           "- Motion (gyro/accelerometer) for fast pitch wobble\n"
+                           "- Battery drain rate for slow thermal drift\n"
+                           "- Falls back to PRNG if no sensors are available\n\n"
+                           "Hover to see live values.");
+    addAndMakeVisible (driftLabel);
 
     // Generate panel wear scuffs (normalised 0–1 coordinates, scaled at paint time)
     wearRandom.setSeed (static_cast<juce::int64> (juce::Time::currentTimeMillis()));
@@ -169,6 +205,12 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
     knobs["chorus_rate"]  = createKnob ("chorus_rate", "Rate");
     knobs["chorus_depth"] = createKnob ("chorus_depth", "Depth");
 
+    // --- Reverb ---
+    knobs["reverb_size"]    = createKnob ("reverb_size", "Size");
+    knobs["reverb_damping"] = createKnob ("reverb_damping", "Damp");
+    knobs["reverb_mix"]     = createKnob ("reverb_mix", "Mix");
+    knobs["reverb_width"]   = createKnob ("reverb_width", "Width");
+
     // --- Master ---
     knobs["master_volume"]     = createKnob ("master_volume", "Volume");
     knobs["master_polyphony"]  = createKnob ("master_polyphony", "Poly");
@@ -176,6 +218,88 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
     knobs["master_pitch_bend"] = createKnob ("master_pitch_bend", "PB");
     toggles["master_mono_legato"] = createToggle ("master_mono_legato", "Legato");
     knobs["master_analog_drift"]  = createKnob ("master_analog_drift", "Drift");
+    knobs["master_unison"]         = createKnob ("master_unison", "Unison");
+    knobs["master_unison_detune"]  = createKnob ("master_unison_detune", "UniDet");
+
+    // Parameter tooltips
+    auto setKnobTip = [&] (const juce::String& id, const juce::String& tip)
+    {
+        if (knobs.count (id)) knobs[id].slider->setTooltip (tip);
+    };
+    auto setComboTip = [&] (const juce::String& id, const juce::String& tip)
+    {
+        if (combos.count (id)) combos[id].combo->setTooltip (tip);
+    };
+    auto setToggleTip = [&] (const juce::String& id, const juce::String& tip)
+    {
+        if (toggles.count (id)) toggles[id].button->setTooltip (tip);
+    };
+
+    auto addOscTips = [&] (const juce::String& prefix)
+    {
+        setComboTip (prefix + "_waveform", "Oscillator waveform shape");
+        setKnobTip (prefix + "_octave", "Transpose by octaves (-2 to +2)");
+        setKnobTip (prefix + "_semitone", "Transpose by semitones (-12 to +12)");
+        setKnobTip (prefix + "_fine_tune", "Fine pitch adjustment in cents");
+        setKnobTip (prefix + "_level", "Oscillator output volume");
+        setKnobTip (prefix + "_pulse_width", "Pulse width for square wave");
+        setKnobTip (prefix + "_unison_voices", "Number of stacked unison voices");
+        setKnobTip (prefix + "_unison_detune", "Pitch spread between unison voices");
+        setKnobTip (prefix + "_unison_blend", "Balance between centre and side voices");
+        setKnobTip (prefix + "_attack", "Amp envelope attack time (ms)");
+        setKnobTip (prefix + "_decay", "Amp envelope decay time (ms)");
+        setKnobTip (prefix + "_sustain", "Amp envelope sustain level");
+        setKnobTip (prefix + "_release", "Amp envelope release time (ms)");
+    };
+
+    addOscTips ("osc1");
+    addOscTips ("osc2");
+
+    setComboTip ("filter_mode", "Filter type: Low-pass, High-pass, Band-pass, or Notch");
+    setComboTip ("filter_slope", "Filter steepness: 12 or 24 dB per octave");
+    setKnobTip ("filter_cutoff", "Filter cutoff frequency in Hz");
+    setKnobTip ("filter_resonance", "Filter resonance / emphasis at cutoff");
+    setKnobTip ("filter_env_amount", "How much the filter envelope modulates cutoff");
+    setKnobTip ("filter_key_tracking", "Scale cutoff frequency by note pitch");
+    setKnobTip ("filter_velocity", "Scale cutoff by note velocity");
+    setKnobTip ("filter_attack", "Filter envelope attack time (ms)");
+    setKnobTip ("filter_decay", "Filter envelope decay time (ms)");
+    setKnobTip ("filter_sustain", "Filter envelope sustain level");
+    setKnobTip ("filter_release", "Filter envelope release time (ms)");
+
+    auto addLFOTips = [&] (const juce::String& prefix)
+    {
+        setComboTip (prefix + "_waveform", "LFO modulation waveform shape");
+        setKnobTip (prefix + "_rate", "LFO speed in Hz");
+        setKnobTip (prefix + "_depth", "LFO modulation intensity");
+        setToggleTip (prefix + "_dest_cutoff", "Route LFO to filter cutoff");
+        setToggleTip (prefix + "_dest_pitch", "Route LFO to oscillator pitch");
+        setToggleTip (prefix + "_dest_volume", "Route LFO to output volume (tremolo)");
+        setToggleTip (prefix + "_dest_pw", "Route LFO to pulse width (PWM)");
+    };
+
+    addLFOTips ("lfo1");
+    addLFOTips ("lfo2");
+
+    setComboTip ("chorus_mode", "Chorus mode: Off, I, II, or I+II (Juno-style)");
+    setKnobTip ("chorus_rate", "Chorus LFO speed");
+    setKnobTip ("chorus_depth", "Chorus modulation depth");
+
+    setKnobTip ("reverb_size", "Reverb room size (small to large)");
+    setKnobTip ("reverb_damping", "High-frequency damping in reverb tail");
+    setKnobTip ("reverb_mix", "Dry/wet reverb balance");
+    setKnobTip ("reverb_width", "Stereo width of reverb");
+
+    setKnobTip ("master_volume", "Master output volume");
+    setKnobTip ("master_polyphony", "Maximum number of simultaneous voices");
+    setKnobTip ("master_glide", "Portamento / glide time between notes (ms)");
+    setKnobTip ("master_pitch_bend", "Pitch bend range in semitones");
+    setToggleTip ("master_mono_legato", "Mono mode with legato note transitions");
+    setKnobTip ("master_analog_drift", "Random analogue-style pitch and filter drift");
+    setKnobTip ("master_unison", "Global unison voices applied to both oscillators");
+    setKnobTip ("master_unison_detune", "Pitch spread for master unison voices");
+
+    masterVolumeSlider.setTooltip ("Master output volume");
 
     // Set size AFTER all components exist so resized() can lay them out
     setSize (kWindowWidth, kWindowHeight);
@@ -186,6 +310,33 @@ TillySynthEditor::~TillySynthEditor()
 {
     stopTimer();
     setLookAndFeel (nullptr);
+}
+
+void TillySynthEditor::rebuildPresetMenu()
+{
+    presetSelector.clear (juce::dontSendNotification);
+    auto& pm = processorRef.getPresetManager();
+    auto* rootMenu = presetSelector.getRootMenu();
+
+    // Group presets by category
+    juce::StringArray categories;
+    for (int i = 0; i < pm.getNumPresets(); ++i)
+    {
+        auto cat = pm.getPresetCategory (i);
+        if (! categories.contains (cat))
+            categories.add (cat);
+    }
+
+    for (const auto& cat : categories)
+    {
+        juce::PopupMenu subMenu;
+        for (int i = 0; i < pm.getNumPresets(); ++i)
+        {
+            if (pm.getPresetCategory (i) == cat)
+                subMenu.addItem (i + 1, pm.getPresetName (i));
+        }
+        rootMenu->addSubMenu (cat, subMenu);
+    }
 }
 
 TillySynthEditor::KnobWithLabel TillySynthEditor::createKnob (const juce::String& paramId,
@@ -296,13 +447,16 @@ void TillySynthEditor::paint (juce::Graphics& g)
 
     contentArea.removeFromTop (kSectionPadding);
 
-    // Row 3: Chorus + Master + VU (VU is a narrow fixed-width column)
+    // Row 3: Chorus + Reverb + Master + VU
     auto row3 = contentArea.reduced (kSectionPadding / 2);
-    int vuWidth = 50;
+    int vuWidth = 70;
     auto vuArea = row3.removeFromRight (vuWidth).reduced (kSectionPadding / 2);
-    auto chorusArea = row3.removeFromLeft (row3.getWidth() / 2).reduced (kSectionPadding / 2);
+    int thirdW = row3.getWidth() / 3;
+    auto chorusArea = row3.removeFromLeft (thirdW).reduced (kSectionPadding / 2);
+    auto reverbArea = row3.removeFromLeft (row3.getWidth() / 2).reduced (kSectionPadding / 2);
     auto masterArea = row3.reduced (kSectionPadding / 2);
     drawSectionBackground (g, chorusArea, "CHORUS");
+    drawSectionBackground (g, reverbArea, "REVERB");
     drawSectionBackground (g, masterArea, "MASTER");
     drawSectionBackground (g, vuArea, "OUTPUT");
     drawVUMeter (g, vuArea.reduced (4, 30));
@@ -313,12 +467,20 @@ void TillySynthEditor::resized()
     // Header controls
     int headerCentreX = getWidth() / 2;
     presetPrev.setBounds (headerCentreX - 155, 12, 28, 26);
-    presetSelector.setBounds (headerCentreX - 125, 12, 250, 26);
-    presetNext.setBounds (headerCentreX + 127, 12, 28, 26);
+    presetSelector.setBounds (headerCentreX - 125, 12, 220, 26);
+    presetNext.setBounds (headerCentreX + 97, 12, 28, 26);
+    presetSave.setBounds (headerCentreX + 128, 12, 42, 26);
+    presetRandom.setBounds (headerCentreX + 174, 12, 38, 26);
 
-    // Master volume slider in header (right side, before "Robbie Tylman")
-    masterVolumeLabel.setBounds (getWidth() - 230, 14, 30, 22);
-    masterVolumeSlider.setBounds (getWidth() - 200, 14, 120, 22);
+    // Author link (right edge)
+    authorLink.setBounds (getWidth() - 120, 12, 110, 26);
+
+    // Master volume slider in header (to the left of author link)
+    masterVolumeLabel.setBounds (getWidth() - 280, 14, 50, 22);
+    masterVolumeSlider.setBounds (getWidth() - 230, 14, 100, 22);
+
+    // Drift label (positioned over the drift scope area)
+    driftLabel.setBounds (6, kHeaderHeight + 2, 92, kDriftBarHeight - 4);
 
     // Keyboard at the bottom
     keyboard.setBounds (getLocalBounds().removeFromBottom (kKeyboardHeight));
@@ -346,10 +508,12 @@ void TillySynthEditor::resized()
 
     contentArea.removeFromTop (kSectionPadding);
 
-    // Row 3: Chorus + Master + VU (VU is paint-only, narrow fixed width)
+    // Row 3: Chorus + Reverb + Master + VU
     auto row3 = contentArea.reduced (kSectionPadding);
-    row3.removeFromRight (50); // reserve VU space (paint-only)
-    layoutChorusSection (row3.removeFromLeft (row3.getWidth() / 2).reduced (kSectionPadding));
+    row3.removeFromRight (70); // reserve VU space (paint-only)
+    int thirdW = row3.getWidth() / 3;
+    layoutChorusSection (row3.removeFromLeft (thirdW).reduced (kSectionPadding));
+    layoutReverbSection (row3.removeFromLeft (row3.getWidth() / 2).reduced (kSectionPadding));
     layoutMasterSection (row3.reduced (kSectionPadding));
 }
 
@@ -544,11 +708,38 @@ void TillySynthEditor::layoutChorusSection (juce::Rectangle<int> area)
     }
 }
 
+void TillySynthEditor::layoutReverbSection (juce::Rectangle<int> area)
+{
+    area.removeFromTop (20);
+
+    int knobW = area.getWidth() / 2;
+    int knobH = kKnobSize + kLabelHeight;
+
+    auto placeKnob = [&] (const juce::String& id, juce::Rectangle<int>& row)
+    {
+        auto col = row.removeFromLeft (knobW);
+        if (knobs.count (id))
+        {
+            knobs[id].slider->setBounds (col.removeFromTop (kKnobSize).reduced (2));
+            knobs[id].label->setBounds (col.removeFromTop (kLabelHeight));
+        }
+    };
+
+    auto row1 = area.removeFromTop (knobH + 4);
+    placeKnob ("reverb_size", row1);
+    placeKnob ("reverb_damping", row1);
+
+    area.removeFromTop (4);
+    auto row2 = area.removeFromTop (knobH + 4);
+    placeKnob ("reverb_mix", row2);
+    placeKnob ("reverb_width", row2);
+}
+
 void TillySynthEditor::layoutMasterSection (juce::Rectangle<int> area)
 {
     area.removeFromTop (20);
 
-    int knobW = area.getWidth() / 3;
+    int knobW = area.getWidth() / 4;
     int knobH = kKnobSize + kLabelHeight;
 
     auto row1 = area.removeFromTop (knobH + 4);
@@ -566,12 +757,14 @@ void TillySynthEditor::layoutMasterSection (juce::Rectangle<int> area)
     placeKnob ("master_volume", row1);
     placeKnob ("master_polyphony", row1);
     placeKnob ("master_glide", row1);
+    placeKnob ("master_unison", row1);
 
     area.removeFromTop (4);
     auto row2 = area.removeFromTop (knobH + 4);
 
     placeKnob ("master_pitch_bend", row2);
     placeKnob ("master_analog_drift", row2);
+    placeKnob ("master_unison_detune", row2);
 
     auto col = row2.removeFromLeft (knobW);
     if (toggles.count ("master_mono_legato"))
@@ -598,6 +791,41 @@ void TillySynthEditor::timerCallback()
         scopeSnapshot[static_cast<size_t> (i)] = processorRef.scopeBuffer[static_cast<size_t> (idx)].load();
     }
 
+    // Update drift tooltip with live sensor values
+    {
+        auto& drift = processorRef.voiceManager.getDriftEngine();
+
+        float avgPitch = 0.0f, avgCutoff = 0.0f;
+        for (int i = 0; i < 16; ++i)
+        {
+            avgPitch  += std::abs (processorRef.driftVisPitch[static_cast<size_t> (i)].load());
+            avgCutoff += std::abs (processorRef.driftVisCutoff[static_cast<size_t> (i)].load());
+        }
+        avgPitch  /= 16.0f;
+        avgCutoff /= 16.0f;
+
+        bool motionOk  = drift.isMotionAvailable();
+        bool batteryOk = drift.isBatteryAvailable();
+        float motion   = drift.getMotionIntensity();
+        float battery  = drift.getBatteryDrainRate();
+
+        juce::String tip;
+        tip << "ANALOGUE DRIFT ENGINE\n\n"
+            << "Drift is generated from real-world sensor data to\n"
+            << "create unique, organic pitch and filter variations.\n\n"
+            << "Sources:\n"
+            << "  Motion (gyro/accel): " << (motionOk ? "active" : "unavailable") << "\n"
+            << "  Battery drain rate:  " << (batteryOk ? "active" : "unavailable") << "\n"
+            << "  PRNG fallback:       " << ((!motionOk && !batteryOk) ? "active" : "standby") << "\n\n"
+            << "Live values:\n"
+            << "  Motion intensity:   " << juce::String (motion, 3) << "\n"
+            << "  Battery drain:      " << juce::String (battery, 3) << "\n"
+            << "  Avg pitch drift:    " << juce::String (avgPitch, 2) << " cents\n"
+            << "  Avg cutoff drift:   " << juce::String (avgCutoff, 2) << " Hz";
+
+        driftLabel.setTooltip (tip);
+    }
+
     repaint();
 }
 
@@ -611,9 +839,7 @@ void TillySynthEditor::drawHeader (juce::Graphics& g, juce::Rectangle<int> bound
     g.setFont (juce::Font (juce::FontOptions (28.0f, juce::Font::bold)));
     g.drawText ("TillySynth", bounds.withTrimmedLeft (20), juce::Justification::centredLeft);
 
-    g.setColour (Colours::labelText.withAlpha (0.6f));
-    g.setFont (juce::Font (juce::FontOptions (12.0f)));
-    g.drawText ("Robbie Tylman", bounds.withTrimmedRight (20), juce::Justification::centredRight);
+    // "Robbie Tylman" is rendered via authorLink HyperlinkButton (positioned in resized)
 
     // Bottom line
     g.setColour (Colours::warmAmber.withAlpha (0.4f));
@@ -631,15 +857,13 @@ void TillySynthEditor::drawDriftScope (juce::Graphics& g, juce::Rectangle<int> b
     g.drawLine (static_cast<float> (bounds.getX()), static_cast<float> (bounds.getY()),
                 static_cast<float> (bounds.getRight()), static_cast<float> (bounds.getY()), 0.5f);
 
-    // Label
-    g.setColour (Colours::warmAmber.withAlpha (0.5f));
-    g.setFont (juce::Font (juce::FontOptions (9.0f)));
-    g.drawText ("SCOPE", bounds.withWidth (44).withTrimmedLeft (6),
-                juce::Justification::centredLeft);
+    // Label is rendered by the driftLabel component (with interactive tooltip)
 
-    // Draw oscilloscope waveform
-    float scopeX = static_cast<float> (bounds.getX()) + 46.0f;
-    float scopeW = static_cast<float> (bounds.getWidth()) - 52.0f;
+    // Draw oscilloscope waveform (equal padding on both sides)
+    float labelEnd = 94.0f;
+    float pad = 6.0f;
+    float scopeX = static_cast<float> (bounds.getX()) + labelEnd + pad;
+    float scopeW = static_cast<float> (bounds.getWidth()) - labelEnd - pad * 2.0f;
     float scopeY = static_cast<float> (bounds.getY()) + 3.0f;
     float scopeH = static_cast<float> (bounds.getHeight()) - 6.0f;
     float centreY = scopeY + scopeH * 0.5f;
@@ -677,9 +901,6 @@ void TillySynthEditor::drawDriftScope (juce::Graphics& g, juce::Rectangle<int> b
     g.setColour (Colours::warmAmber.withAlpha (0.8f));
     g.strokePath (wavePath, juce::PathStrokeType (1.2f));
 
-    // Glow effect
-    g.setColour (Colours::warmAmber.withAlpha (0.15f));
-    g.strokePath (wavePath, juce::PathStrokeType (3.0f));
 }
 
 void TillySynthEditor::drawSectionBackground (juce::Graphics& g, juce::Rectangle<int> bounds,

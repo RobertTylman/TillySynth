@@ -145,6 +145,25 @@ static void addChorusParams (juce::AudioProcessorValueTreeState::ParameterLayout
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 50.0f));
 }
 
+static void addReverbParams (juce::AudioProcessorValueTreeState::ParameterLayout& layout)
+{
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "reverb_size", 1 }, "Reverb Size",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 50.0f));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "reverb_damping", 1 }, "Reverb Damping",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 50.0f));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "reverb_mix", 1 }, "Reverb Mix",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "reverb_width", 1 }, "Reverb Width",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 100.0f));
+}
+
 static void addMasterParams (juce::AudioProcessorValueTreeState::ParameterLayout& layout)
 {
     layout.add (std::make_unique<juce::AudioParameterFloat> (
@@ -167,6 +186,13 @@ static void addMasterParams (juce::AudioProcessorValueTreeState::ParameterLayout
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { "master_analog_drift", 1 }, "Analogue Drift",
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f));
+
+    layout.add (std::make_unique<juce::AudioParameterInt> (
+        juce::ParameterID { "master_unison", 1 }, "Master Unison", 1, 7, 1));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "master_unison_detune", 1 }, "Master Unison Detune",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 20.0f));
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
@@ -179,6 +205,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
     addLFOParams (layout, "lfo1", "LFO 1");
     addLFOParams (layout, "lfo2", "LFO 2");
     addChorusParams (layout);
+    addReverbParams (layout);
     addMasterParams (layout);
 
     return layout;

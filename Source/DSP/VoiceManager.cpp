@@ -139,7 +139,6 @@ void VoiceManager::renderNextSample (float& leftOut, float& rightOut)
     float totalPWMod     = lfo1Out.pwMod     + lfo2Out.pwMod;
 
     float mono = 0.0f;
-    int activeVoices = 0;
 
     for (int i = 0; i < maxPolyphony; ++i)
     {
@@ -155,13 +154,11 @@ void VoiceManager::renderNextSample (float& leftOut, float& rightOut)
         mono += voices[static_cast<size_t> (i)].processSample (
             totalFilterMod, totalPitchMod, totalVolumeMod, totalPWMod,
             totalPitchDrift, driftCutoff);
-
-        ++activeVoices;
     }
 
-    // Soft limiting to prevent clipping with many voices
-    if (activeVoices > 1)
-        mono *= 1.0f / std::sqrt (static_cast<float> (activeVoices));
+    // Fixed scaling based on max polyphony to prevent volume jumps
+    // as releasing voices die off
+    mono *= 1.0f / std::sqrt (static_cast<float> (maxPolyphony));
 
     leftOut = mono;
     rightOut = mono;

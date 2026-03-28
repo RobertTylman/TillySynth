@@ -66,6 +66,7 @@ private:
     void layoutFilterSection (juce::Rectangle<int> area);
     void layoutLFOSection (juce::Rectangle<int> area, const juce::String& prefix);
     void layoutChorusSection (juce::Rectangle<int> area);
+    void layoutReverbSection (juce::Rectangle<int> area);
     void layoutMasterSection (juce::Rectangle<int> area);
 
     TillySynthProcessor& processorRef;
@@ -73,7 +74,8 @@ private:
 
     // Preset selector with nav buttons
     juce::ComboBox presetSelector;
-    juce::TextButton presetPrev, presetNext;
+    juce::TextButton presetPrev, presetNext, presetSave, presetRandom;
+    void rebuildPresetMenu();
 
     // Master volume in header
     juce::Slider masterVolumeSlider;
@@ -82,6 +84,9 @@ private:
 
     // MIDI keyboard
     juce::MidiKeyboardComponent keyboard;
+
+    // Drift scope label (interactive tooltip)
+    juce::Label driftLabel;
 
     // Scope buffer snapshot for oscilloscope display
     std::array<float, 512> scopeSnapshot {};
@@ -92,6 +97,13 @@ private:
     // Panel wear seed for per-instance variation
     juce::Random wearRandom;
     std::vector<juce::Point<float>> wearScuffs;
+
+    // Author link in header
+    juce::HyperlinkButton authorLink { "Robbie Tylman",
+        juce::URL ("https://roberttylman.github.io/portfolio-site/") };
+
+    // Tooltip window for parameter descriptions
+    juce::TooltipWindow tooltipWindow { this, 1500 };
 
     // UI components stored by param ID
     std::map<juce::String, KnobWithLabel> knobs;
