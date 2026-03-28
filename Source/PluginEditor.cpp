@@ -34,40 +34,60 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
     keyboard.setOctaveForMiddleC (4);
     addAndMakeVisible (keyboard);
 
-    // Preset selector with prev/next arrows
-    auto presetNames = processorRef.getPresetManager().getPresetNames();
-    for (int i = 0; i < presetNames.size(); ++i)
-        presetSelector.addItem (presetNames[i], i + 1);
+    // Preset selector with category submenus
+    {
+        auto& pm = processorRef.getPresetManager();
+        auto* rootMenu = presetSelector.getRootMenu();
+
+        // Group presets by category
+        juce::StringArray categories;
+        for (int i = 0; i < pm.getNumPresets(); ++i)
+        {
+            auto cat = pm.getPresetCategory (i);
+            if (! categories.contains (cat))
+                categories.add (cat);
+        }
+
+        for (const auto& cat : categories)
+        {
+            juce::PopupMenu subMenu;
+            for (int i = 0; i < pm.getNumPresets(); ++i)
+            {
+                if (pm.getPresetCategory (i) == cat)
+                    subMenu.addItem (i + 1, pm.getPresetName (i));
+            }
+            rootMenu->addSubMenu (cat, subMenu);
+        }
+    }
 
     presetSelector.setTextWhenNothingSelected ("Select Preset...");
     presetSelector.onChange = [this]
     {
-        int idx = presetSelector.getSelectedItemIndex();
-        if (idx >= 0)
-            processorRef.getPresetManager().loadPreset (idx);
+        int id = presetSelector.getSelectedId();
+        if (id > 0)
+            processorRef.getPresetManager().loadPreset (id - 1);
     };
     addAndMakeVisible (presetSelector);
 
     presetPrev.setButtonText ("<");
     presetPrev.onClick = [this]
     {
-        int current = presetSelector.getSelectedItemIndex();
-        if (current > 0)
-            presetSelector.setSelectedItemIndex (current - 1);
-        else
-            presetSelector.setSelectedItemIndex (processorRef.getPresetManager().getNumPresets() - 1);
+        int total = processorRef.getPresetManager().getNumPresets();
+        int currentId = presetSelector.getSelectedId();
+        int currentIdx = (currentId > 0) ? currentId - 1 : 0;
+        int newIdx = (currentIdx > 0) ? currentIdx - 1 : total - 1;
+        presetSelector.setSelectedId (newIdx + 1);
     };
     addAndMakeVisible (presetPrev);
 
     presetNext.setButtonText (">");
     presetNext.onClick = [this]
     {
-        int current = presetSelector.getSelectedItemIndex();
         int total = processorRef.getPresetManager().getNumPresets();
-        if (current < total - 1)
-            presetSelector.setSelectedItemIndex (current + 1);
-        else
-            presetSelector.setSelectedItemIndex (0);
+        int currentId = presetSelector.getSelectedId();
+        int currentIdx = (currentId > 0) ? currentId - 1 : -1;
+        int newIdx = (currentIdx < total - 1) ? currentIdx + 1 : 0;
+        presetSelector.setSelectedId (newIdx + 1);
     };
     addAndMakeVisible (presetNext);
 
@@ -276,15 +296,16 @@ void TillySynthEditor::paint (juce::Graphics& g)
 
     contentArea.removeFromTop (kSectionPadding);
 
-    // Row 3: Chorus + Master + VU
+    // Row 3: Chorus + Master + VU (VU is a narrow fixed-width column)
     auto row3 = contentArea.reduced (kSectionPadding / 2);
-    auto chorusArea = row3.removeFromLeft (row3.getWidth() / 3).reduced (kSectionPadding / 2);
-    auto masterArea = row3.removeFromLeft (row3.getWidth() / 2).reduced (kSectionPadding / 2);
-    auto vuArea = row3.reduced (kSectionPadding / 2);
+    int vuWidth = 50;
+    auto vuArea = row3.removeFromRight (vuWidth).reduced (kSectionPadding / 2);
+    auto chorusArea = row3.removeFromLeft (row3.getWidth() / 2).reduced (kSectionPadding / 2);
+    auto masterArea = row3.reduced (kSectionPadding / 2);
     drawSectionBackground (g, chorusArea, "CHORUS");
     drawSectionBackground (g, masterArea, "MASTER");
     drawSectionBackground (g, vuArea, "OUTPUT");
-    drawVUMeter (g, vuArea.reduced (10, 30));
+    drawVUMeter (g, vuArea.reduced (4, 30));
 }
 
 void TillySynthEditor::resized()
@@ -325,11 +346,11 @@ void TillySynthEditor::resized()
 
     contentArea.removeFromTop (kSectionPadding);
 
-    // Row 3: Chorus + Master + VU
+    // Row 3: Chorus + Master + VU (VU is paint-only, narrow fixed width)
     auto row3 = contentArea.reduced (kSectionPadding);
-    layoutChorusSection (row3.removeFromLeft (row3.getWidth() / 3).reduced (kSectionPadding));
-    layoutMasterSection (row3.removeFromLeft (row3.getWidth() / 2).reduced (kSectionPadding));
-    // VU area is paint-only
+    row3.removeFromRight (50); // reserve VU space (paint-only)
+    layoutChorusSection (row3.removeFromLeft (row3.getWidth() / 2).reduced (kSectionPadding));
+    layoutMasterSection (row3.reduced (kSectionPadding));
 }
 
 void TillySynthEditor::layoutOscillatorSection (juce::Rectangle<int> area, const juce::String& prefix)
@@ -679,9 +700,9 @@ void TillySynthEditor::drawSectionBackground (juce::Graphics& g, juce::Rectangle
 
 void TillySynthEditor::drawVUMeter (juce::Graphics& g, juce::Rectangle<int> bounds)
 {
-    float meterWidth = static_cast<float> (bounds.getWidth()) * 0.35f;
+    float meterWidth = juce::jmin (static_cast<float> (bounds.getWidth()) * 0.12f, 14.0f);
     float meterHeight = static_cast<float> (bounds.getHeight());
-    float gap = static_cast<float> (bounds.getWidth()) * 0.1f;
+    float gap = meterWidth * 0.6f;
 
     float leftX = static_cast<float> (bounds.getCentreX()) - meterWidth - gap * 0.5f;
     float rightX = static_cast<float> (bounds.getCentreX()) + gap * 0.5f;
@@ -746,6 +767,70 @@ void TillySynthEditor::drawPanelWear (juce::Graphics& g, juce::Rectangle<int> /*
         float y = wearRandom.nextFloat() * static_cast<float> (getHeight());
         g.fillRect (x, y, 1.0f, 1.0f);
     }
+}
+
+void TillySynthEditor::drawLFOWaveform (juce::Graphics& g, juce::Rectangle<int> bounds,
+                                         int waveformType, float phase, float rate)
+{
+    // Background
+    g.setColour (Colours::panelBackground.darker (0.2f));
+    g.fillRoundedRectangle (bounds.toFloat(), 3.0f);
+
+    float w = static_cast<float> (bounds.getWidth());
+    float h = static_cast<float> (bounds.getHeight());
+    float x0 = static_cast<float> (bounds.getX());
+    float y0 = static_cast<float> (bounds.getY());
+    float centreY = y0 + h * 0.5f;
+
+    // Centre line
+    g.setColour (Colours::warmAmber.withAlpha (0.1f));
+    g.drawLine (x0, centreY, x0 + w, centreY, 0.5f);
+
+    // Draw 2 cycles of the waveform, shifted by current phase
+    juce::Path path;
+    int numPoints = static_cast<int> (w);
+    float cycles = juce::jmax (1.0f, juce::jmin (rate, 4.0f));
+
+    for (int i = 0; i <= numPoints; ++i)
+    {
+        float t = static_cast<float> (i) / static_cast<float> (numPoints);
+        float p = std::fmod (t * cycles + phase, 1.0f);
+        if (p < 0.0f) p += 1.0f;
+
+        float sample = 0.0f;
+        switch (waveformType)
+        {
+            case 0: // Sine
+                sample = std::sin (p * juce::MathConstants<float>::twoPi);
+                break;
+            case 1: // Sawtooth
+                sample = 2.0f * p - 1.0f;
+                break;
+            case 2: // Square
+                sample = (p < 0.5f) ? 1.0f : -1.0f;
+                break;
+            case 3: // Triangle
+                sample = (p < 0.5f) ? (4.0f * p - 1.0f) : (3.0f - 4.0f * p);
+                break;
+        }
+
+        float px = x0 + static_cast<float> (i);
+        float py = centreY - sample * h * 0.4f;
+
+        if (i == 0)
+            path.startNewSubPath (px, py);
+        else
+            path.lineTo (px, py);
+    }
+
+    g.setColour (Colours::warmAmber.withAlpha (0.7f));
+    g.strokePath (path, juce::PathStrokeType (1.5f));
+
+    // Rate label
+    g.setColour (Colours::labelText.withAlpha (0.4f));
+    g.setFont (juce::Font (juce::FontOptions (8.0f)));
+    g.drawText (juce::String (rate, 1) + " Hz",
+                bounds.withTrimmedLeft (4), juce::Justification::bottomLeft);
 }
 
 } // namespace tillysynth
