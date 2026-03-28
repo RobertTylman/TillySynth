@@ -1,39 +1,73 @@
-# TillySynth
+<div align="center">
+  <h1>TillySynth</h1>
+  <p><strong>The Warmth of Analogue, Driven by the Pulse of Your Machine.</strong></p>
 
-**TillySynth** is a polyphonic subtractive synthesizer plugin designed to capture the warmth, character, and "organic imperfection" of vintage hardware, specifically inspired by the legendary Roland Juno-60.
+  [![JUCE 8.0.4](https://img.shields.io/badge/JUCE-8.0.4-blue.svg)](https://juce.com/)
+  [![C++ 17](https://img.shields.io/badge/C%2B%2B-17-orange.svg)](https://en.cppreference.com/w/cpp/17)
+  [![Platform: macOS / Windows](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows-lightgrey.svg)]()
+  [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+</div>
 
-At its heart is a signature **CPU-temperature-driven analogue drift engine**, which uses real-world hardware fluctuations to drive subtle per-voice pitch and filter variations. This ensures that the synthesizer feels alive and evolving, rather than sterile and predictable.
+---
 
-## Key Features
+**TillySynth** is a polyphonic subtractive synthesizer plugin designed to capture the lush, "organic imperfection" of vintage hardware, specifically inspired by the legendary Roland Juno-60.
 
-### 🎹 Living Oscillators & Polyphony
-- **Polyphonic Subtractive Engine**: Up to 16 voices with an oldest-note-first stealing strategy.
-- **Dual Independent Oscillators**: Choose between Sine, Sawtooth, Square (with PWM), and Triangle waves.
-- **Unison Mode**: Up to 7 voices per oscillator with adjustable detune spread and blend.
-- **Analogue Drift**: A unique engine that polls CPU temperature to drive randomized, organic drift in pitch (±8 cents) and filter cutoff (±4 Hz), making every instance unique.
+Unlike static digital recreations, TillySynth feels alive. At its core is a unique **CPU-Temperature-Driven Analogue Drift Engine** that uses your computer's real-time hardware fluctuations to drive subtle per-voice pitch and filter variations. Every instance is unique, and every note evolves.
 
-### 🎛️ Sculpting & Modulation
-- **Multi-Mode Filter**: Low-pass, High-pass, Band-pass, and Notch modes with selectable 12dB or 24dB slopes.
-- **Key & Velocity Tracking**: Harder playing can open the filter cutoff for dynamic performances.
-- **Twin LFOs**: Independent LFOs targeting pitch, filter, volume, or pulse width.
-- **Dual Envelopes**: Dedicated ADSR envelopes for both Amplitude and Filter sections.
+## ✨ Key Features
 
-### ✨ Vintage Effects
-- **BBD-Style Chorus**: A characterful modeled chorus with modes I, II, and I+II, providing the classic Juno-60 "lushness" with subtle wow and flutter.
-- **Portamento / Glide**: Smooth pitch transitions for monophonic or polyphonic lines.
+### 🎹 Living Oscillators
+*   **16-Voice Polyphony**: Authentic voice-stacking with adaptive oldest-note-first stealing.
+*   **Dual-Layer Synthesis**: Two independent oscillators per voice with Sine, Sawtooth, Square (PWM), and Triangle waves.
+*   **Unison Power**: Stack up to 7 voices per oscillator with adjustable detune spread and stereo blend.
+*   **Analogue Detune**: A dedicated engine mapping CPU thermal data to ±8 cents of pitch drift and ±4 Hz of filter cutoff variation.
 
-## Technical Stack
+### 🎛️ Dynamic Sculpting
+*   **State-Variable Filter**: Low-pass, High-pass, Band-pass, and Notch modes with 12dB or 24dB slopes.
+*   **Organic Modulation**: Dual independent LFOs targeting pitch, filter, volume, and pulse width.
+*   **Precision Envelopes**: Dedicated ADSR envelopes for both Amplitude and Filter sections.
+*   **Keyboard Tracking**: Filter cutoff scales with MIDI note and velocity for expressive, dynamic performances.
 
-- **Framework**: [JUCE](https://juce.com/) (Audio Processors, DSP, Graphics, GUI)
-- **Language**: C++17
-- **Build System**: CMake with [CPM.cmake](https://github.com/cpm-cmake/CPM.cmake)
-- **Platforms**: macOS (AU, VST3, Standalone), Windows (VST3, Standalone)
+### 🌈 Vintage Effects
+*   **BBD-Style Chorus**: A meticulously modeled Bucket Brigade Device chorus with classic I, II, and I+II modes. Captures the iconic "lushness" with subtle wow and flutter.
+*   **Glide / Portamento**: Smooth pitch transitions for both monophonic and polyphonic patches.
 
-## Design Philosophy
+## 🛠️ Technical Stack
 
-TillySynth prioritizes **visual and sonic character**. The UI is custom-drawn with a vintage horizontal layout, featuring warm ambers, muted creams, and high-fidelity "panel wear" textures that are randomized per instance. 
+*   **Framework**: [JUCE 8.0.4](https://juce.com/)
+*   **Language**: Modern C++17
+*   **Build System**: CMake with [CPM.cmake](https://github.com/cpm-cmake/CPM.cmake)
+*   **Platform Integration**: 
+    *   **macOS**: IOKit & CoreMotion for hardware telemetry.
+    *   **Windows**: WMI-based thermal polling.
+    *   *Graceful fallback to randomized PRNG drift if hardware sensors are unavailable.*
 
-Every technical decision, from the lack of a generic preset browser to the inclusion of hardware-influenced drift, is aimed at encouraging users to craft their own unique, "living" sounds.
+## 📐 Design Philosophy
+
+TillySynth prioritizes **Visual and Sonic Character** over clinical precision.
+
+*   **Custom UI**: A fully original, Juno-inspired horizontal layout utilizing a custom `LookAndFeel`.
+*   **Panel Wear**: Every plugin instance renders unique, randomized "surface wear" and "knob scuffs," emphasizing that no two units are the same.
+*   **Input-Focused**: No generic preset browser—TillySynth encourages the lost art of sound design, making every patch a personal creation.
+
+## 🚀 Getting Started
+
+### Prerequisites
+*   CMake (3.22+)
+*   C++17 compatible compiler (Clang/MSVC)
+
+### Build Instructions
+```bash
+# Clone the repository
+git clone https://github.com/RobertTylman/TillySynth.git
+cd TillySynth
+
+# Configure and build
+cmake -B build -S .
+cmake --build build --config Release
+```
+
+The build will generate **VST3**, **AU** (macOS only), and **Standalone** versions of the plugin.
 
 ---
 
