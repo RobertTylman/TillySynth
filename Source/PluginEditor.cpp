@@ -368,7 +368,7 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
 
     modWheel.onValueChange = [this] (float v)
     {
-        processorRef.modWheelUI.store (v);
+        processorRef.setModWheelFromUI (v);
     };
     addAndMakeVisible (modWheel);
 

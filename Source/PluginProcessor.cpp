@@ -268,6 +268,12 @@ void TillySynthProcessor::setPitchBendFromUI (float normalised)
     pitchBendUI.store (normalised);
 }
 
+void TillySynthProcessor::setModWheelFromUI (float value01)
+{
+    modWheelUI.store (value01);
+    voiceManager.setModWheelValue (value01);
+}
+
 juce::AudioProcessorEditor* TillySynthProcessor::createEditor()
 {
     return new TillySynthEditor (*this);

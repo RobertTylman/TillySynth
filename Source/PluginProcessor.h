@@ -46,9 +46,12 @@ public:
     void setTranspose (int semitones) { transposeSemitones = juce::jlimit (-12, 12, semitones); }
     int getTranspose() const { return transposeSemitones; }
     PresetManager& getPresetManager() { return presetManager; }
+    const PresetManager& getPresetManager() const { return presetManager; }
 
     // UI-driven pitch bend (maps normalised -1..1 to MIDI pitch wheel range)
     void setPitchBendFromUI (float normalised);
+    // UI-driven mod wheel (0..1 vibrato depth)
+    void setModWheelFromUI (float value01);
 
     // Access drift engine for sensor state queries
     AnalogueDriftEngine& getDriftEngine() { return voiceManager.getDriftEngine(); }

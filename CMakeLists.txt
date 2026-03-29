@@ -26,11 +26,12 @@ juce_add_plugin(TillySynth
     COPY_PLUGIN_AFTER_BUILD TRUE
 )
 
-target_sources(TillySynth PRIVATE
+set(TILLYSYNTH_SHARED_SOURCES
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
     Source/Parameters.cpp
     Source/PresetManager.cpp
+    Source/PresetVariantGenerator.cpp
     Source/DSP/Oscillator.cpp
     Source/DSP/NoiseOscillator.cpp
     Source/DSP/Envelope.cpp
@@ -44,16 +45,20 @@ target_sources(TillySynth PRIVATE
     Source/UI/TillySynthLookAndFeel.cpp
 )
 
-target_include_directories(TillySynth PRIVATE Source)
+add_library(TillySynthCore STATIC
+    ${TILLYSYNTH_SHARED_SOURCES}
+)
 
-target_compile_definitions(TillySynth PUBLIC
+target_include_directories(TillySynthCore PRIVATE Source)
+
+target_compile_definitions(TillySynthCore PUBLIC
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
     JUCE_VST3_CAN_REPLACE_VST2=0
     JUCE_DISPLAY_SPLASH_SCREEN=0
 )
 
-target_link_libraries(TillySynth PRIVATE
+target_link_libraries(TillySynthCore PRIVATE
     juce::juce_audio_utils
     juce::juce_audio_processors
     juce::juce_dsp
@@ -71,14 +76,33 @@ target_link_libraries(TillySynth PRIVATE
     juce::juce_recommended_warning_flags
 )
 
+target_link_libraries(TillySynth PRIVATE TillySynthCore)
+
+juce_add_gui_app(TillyPresetReview
+    PRODUCT_NAME "TillySynth Preset Review"
+)
+
+target_sources(TillyPresetReview PRIVATE
+    Source/PresetReviewApp.cpp
+)
+
+target_include_directories(TillyPresetReview PRIVATE Source)
+target_link_libraries(TillyPresetReview PRIVATE
+    TillySynthCore
+    juce::juce_audio_utils
+    juce::juce_gui_extra
+    juce::juce_recommended_config_flags
+    juce::juce_recommended_warning_flags
+)
+
 if(APPLE)
     find_library(IOKIT_FRAMEWORK IOKit)
     find_library(COREMOTION_FRAMEWORK CoreMotion)
 
     if(IOKIT_FRAMEWORK)
-        target_link_libraries(TillySynth PRIVATE ${IOKIT_FRAMEWORK})
+        target_link_libraries(TillySynthCore PRIVATE ${IOKIT_FRAMEWORK})
     endif()
     if(COREMOTION_FRAMEWORK)
-        target_link_libraries(TillySynth PRIVATE ${COREMOTION_FRAMEWORK})
+        target_link_libraries(TillySynthCore PRIVATE ${COREMOTION_FRAMEWORK})
     endif()
 endif()

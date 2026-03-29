@@ -40,6 +40,9 @@ static Preset makePreset (const juce::String& name, const juce::String& category
 
         { "reverb_size", 50 }, { "reverb_damping", 50 }, { "reverb_mix", 0 }, { "reverb_width", 100 },
 
+        { "noise_type", 0 }, { "noise_level", 0 }, { "noise_sh_rate", 1000 },
+        { "noise_attack", 5 }, { "noise_decay", 200 }, { "noise_sustain", 70 }, { "noise_release", 300 },
+
         { "master_volume", 80 }, { "master_polyphony", 16 }, { "master_glide", 0 },
         { "master_pitch_bend", 2 }, { "master_mono_legato", 0 }, { "master_analog_drift", 0 },
         { "master_unison", 1 }, { "master_unison_detune", 20 }
@@ -85,10 +88,12 @@ static Preset makePreset (const juce::String& name, const juce::String& category
         float osc2Level = getParam ("osc2_level") / 100.0f;
         float osc1Unison = std::max (1.0f, getParam ("osc1_unison_voices"));
         float osc2Unison = std::max (1.0f, getParam ("osc2_unison_voices"));
+        float noiseLevel = getParam ("noise_level") / 100.0f;
 
-        // Energy estimate: level * sqrt(unison voices) per oscillator
+        // Energy estimate: level * sqrt(unison voices) per oscillator + noise
         float energy = osc1Level * std::sqrt (osc1Unison)
-                     + osc2Level * std::sqrt (osc2Unison);
+                     + osc2Level * std::sqrt (osc2Unison)
+                     + noiseLevel;
 
         // Baseline energy: two oscillators at 50% = 1.0
         constexpr float targetEnergy = 1.0f;
@@ -122,7 +127,10 @@ void PresetManager::buildFactoryPresets()
         { "osc2_waveform", 1 }, { "osc2_fine_tune", 7 }, { "osc2_level", 70 },
         { "osc2_attack", 1000 }, { "osc2_decay", 2000 }, { "osc2_sustain", 80 }, { "osc2_release", 1500 },
         { "filter_cutoff", 3000 }, { "filter_resonance", 10 }, { "filter_env_amount", 20 },
-        { "chorus_mode", 3 }, { "master_analog_drift", 15 }
+        { "chorus_mode", 3 }, { "master_analog_drift", 15 },
+        { "reverb_size", 65 }, { "reverb_mix", 25 },
+        { "noise_type", 1 }, { "noise_level", 8 }, { "noise_attack", 800 }, { "noise_sustain", 60 }, { "noise_release", 1500 },
+        { "master_unison", 2 }
     }));
 
     presets.push_back (makePreset ("Crystal Shimmer", "Pads", {
@@ -132,7 +140,9 @@ void PresetManager::buildFactoryPresets()
         { "osc2_attack", 1500 }, { "osc2_sustain", 90 }, { "osc2_release", 3000 },
         { "filter_cutoff", 6000 }, { "filter_resonance", 25 },
         { "lfo1_depth", 15 }, { "lfo1_rate", 0.3f }, { "lfo1_dest_cutoff", 1 },
-        { "chorus_mode", 2 }, { "master_analog_drift", 20 }
+        { "chorus_mode", 2 }, { "master_analog_drift", 20 },
+        { "reverb_size", 70 }, { "reverb_mix", 30 },
+        { "noise_type", 3 }, { "noise_level", 6 }, { "noise_attack", 1200 }, { "noise_sustain", 30 }, { "noise_release", 3000 }
     }));
 
     presets.push_back (makePreset ("Dark Atmosphere", "Pads", {
@@ -142,7 +152,10 @@ void PresetManager::buildFactoryPresets()
         { "osc2_attack", 2500 }, { "osc2_sustain", 60 }, { "osc2_release", 4000 },
         { "filter_cutoff", 1500 }, { "filter_resonance", 30 }, { "filter_env_amount", 30 },
         { "filter_decay", 3000 }, { "filter_sustain", 20 },
-        { "chorus_mode", 3 }, { "master_analog_drift", 30 }
+        { "chorus_mode", 3 }, { "master_analog_drift", 30 },
+        { "reverb_size", 80 }, { "reverb_mix", 35 },
+        { "noise_type", 2 }, { "noise_level", 12 }, { "noise_attack", 2000 }, { "noise_sustain", 50 }, { "noise_release", 4000 },
+        { "master_unison", 2 }
     }));
 
     presets.push_back (makePreset ("Juno Strings", "Pads", {
@@ -151,7 +164,9 @@ void PresetManager::buildFactoryPresets()
         { "osc2_waveform", 1 }, { "osc2_fine_tune", -8 }, { "osc2_level", 80 },
         { "osc2_attack", 500 }, { "osc2_sustain", 85 }, { "osc2_release", 800 },
         { "filter_cutoff", 4500 }, { "filter_resonance", 5 }, { "filter_env_amount", 15 },
-        { "chorus_mode", 1 }, { "master_analog_drift", 10 }
+        { "chorus_mode", 1 }, { "master_analog_drift", 10 },
+        { "reverb_size", 55 }, { "reverb_mix", 20 },
+        { "noise_type", 1 }, { "noise_level", 5 }, { "noise_attack", 400 }, { "noise_sustain", 70 }, { "noise_release", 800 }
     }));
 
     presets.push_back (makePreset ("Floating Clouds", "Pads", {
@@ -161,7 +176,9 @@ void PresetManager::buildFactoryPresets()
         { "osc2_attack", 4000 }, { "osc2_sustain", 90 }, { "osc2_release", 5000 },
         { "filter_cutoff", 2500 }, { "filter_resonance", 15 },
         { "lfo1_depth", 20 }, { "lfo1_rate", 0.15f }, { "lfo1_dest_cutoff", 1 },
-        { "chorus_mode", 3 }, { "master_analog_drift", 25 }
+        { "chorus_mode", 3 }, { "master_analog_drift", 25 },
+        { "reverb_size", 85 }, { "reverb_mix", 35 },
+        { "noise_type", 1 }, { "noise_level", 10 }, { "noise_attack", 3000 }, { "noise_sustain", 80 }, { "noise_release", 5000 }
     }));
 
     presets.push_back (makePreset ("Analog Heaven", "Pads", {
@@ -171,7 +188,9 @@ void PresetManager::buildFactoryPresets()
         { "osc2_attack", 800 }, { "osc2_sustain", 75 }, { "osc2_release", 2000 },
         { "filter_cutoff", 3500 }, { "filter_resonance", 20 }, { "filter_env_amount", 35 },
         { "lfo1_depth", 10 }, { "lfo1_rate", 0.5f }, { "lfo1_dest_pw", 1 },
-        { "chorus_mode", 3 }, { "master_analog_drift", 40 }
+        { "chorus_mode", 3 }, { "master_analog_drift", 40 },
+        { "reverb_size", 60 }, { "reverb_mix", 20 },
+        { "master_unison", 2 }
     }));
 
     presets.push_back (makePreset ("Choir of Angels", "Pads", {
@@ -181,7 +200,9 @@ void PresetManager::buildFactoryPresets()
         { "osc2_unison_voices", 5 }, { "osc2_unison_detune", 12 },
         { "osc2_attack", 2000 }, { "osc2_sustain", 95 }, { "osc2_release", 3000 },
         { "filter_cutoff", 5000 }, { "filter_resonance", 8 },
-        { "chorus_mode", 2 }, { "master_analog_drift", 15 }
+        { "chorus_mode", 2 }, { "master_analog_drift", 15 },
+        { "reverb_size", 75 }, { "reverb_mix", 30 },
+        { "noise_level", 4 }, { "noise_attack", 1500 }, { "noise_decay", 3000 }, { "noise_sustain", 30 }, { "noise_release", 3000 }
     }));
 
     presets.push_back (makePreset ("Glacial Drift", "Pads", {
@@ -192,7 +213,9 @@ void PresetManager::buildFactoryPresets()
         { "filter_cutoff", 2000 }, { "filter_resonance", 35 }, { "filter_env_amount", 40 },
         { "filter_decay", 5000 }, { "filter_sustain", 10 },
         { "lfo1_depth", 25 }, { "lfo1_rate", 0.08f }, { "lfo1_dest_cutoff", 1 },
-        { "chorus_mode", 3 }, { "master_analog_drift", 50 }
+        { "chorus_mode", 3 }, { "master_analog_drift", 50 },
+        { "reverb_size", 90 }, { "reverb_mix", 40 },
+        { "noise_type", 2 }, { "noise_level", 10 }, { "noise_attack", 4000 }, { "noise_sustain", 60 }, { "noise_release", 6000 }
     }));
 
     presets.push_back (makePreset ("Warm Blanket", "Pads", {
@@ -201,7 +224,10 @@ void PresetManager::buildFactoryPresets()
         { "osc2_waveform", 3 }, { "osc2_fine_tune", -3 }, { "osc2_level", 90 },
         { "osc2_attack", 600 }, { "osc2_sustain", 90 }, { "osc2_release", 1200 },
         { "filter_cutoff", 2000 }, { "filter_resonance", 5 }, { "filter_env_amount", 10 },
-        { "chorus_mode", 1 }, { "master_analog_drift", 12 }
+        { "chorus_mode", 1 }, { "master_analog_drift", 12 },
+        { "reverb_size", 55 }, { "reverb_mix", 20 },
+        { "noise_type", 1 }, { "noise_level", 6 }, { "noise_attack", 500 }, { "noise_sustain", 80 }, { "noise_release", 1200 },
+        { "master_unison", 2 }
     }));
 
     presets.push_back (makePreset ("Neon Horizons", "Pads", {
@@ -213,7 +239,9 @@ void PresetManager::buildFactoryPresets()
         { "filter_cutoff", 5500 }, { "filter_resonance", 30 }, { "filter_env_amount", 45 },
         { "filter_decay", 2000 },
         { "lfo1_depth", 12 }, { "lfo1_rate", 0.4f }, { "lfo1_dest_pw", 1 },
-        { "chorus_mode", 3 }, { "master_analog_drift", 20 }
+        { "chorus_mode", 3 }, { "master_analog_drift", 20 },
+        { "reverb_size", 60 }, { "reverb_mix", 20 },
+        { "master_unison", 2 }
     }));
 
     // ==================== LEADS (11-20) ====================
@@ -601,7 +629,9 @@ void PresetManager::buildFactoryPresets()
         { "osc2_attack", 2500 }, { "osc2_sustain", 85 }, { "osc2_release", 4000 },
         { "filter_cutoff", 2500 }, { "filter_resonance", 15 },
         { "lfo1_depth", 10 }, { "lfo1_rate", 0.15f }, { "lfo1_dest_cutoff", 1 },
-        { "chorus_mode", 2 }, { "master_analog_drift", 25 }
+        { "chorus_mode", 2 }, { "master_analog_drift", 25 },
+        { "reverb_size", 70 }, { "reverb_mix", 30 },
+        { "noise_type", 1 }, { "noise_level", 8 }, { "noise_attack", 2000 }, { "noise_sustain", 70 }, { "noise_release", 4000 }
     }));
 
     presets.push_back (makePreset ("Cosmic Drift", "Pads", {
@@ -611,7 +641,9 @@ void PresetManager::buildFactoryPresets()
         { "osc2_attack", 2000 }, { "osc2_sustain", 90 }, { "osc2_release", 5000 },
         { "filter_cutoff", 4000 }, { "filter_resonance", 30 }, { "filter_env_amount", 25 },
         { "lfo1_depth", 20 }, { "lfo1_rate", 0.08f }, { "lfo1_dest_cutoff", 1 },
-        { "chorus_mode", 3 }, { "master_analog_drift", 50 }
+        { "chorus_mode", 3 }, { "master_analog_drift", 50 },
+        { "reverb_size", 85 }, { "reverb_mix", 35 },
+        { "noise_type", 2 }, { "noise_level", 10 }, { "noise_attack", 1500 }, { "noise_sustain", 60 }, { "noise_release", 5000 }
     }));
 
     presets.push_back (makePreset ("Glassy Pad", "Pads", {
@@ -620,7 +652,9 @@ void PresetManager::buildFactoryPresets()
         { "osc2_waveform", 0 }, { "osc2_octave", 1 }, { "osc2_level", 35 },
         { "osc2_attack", 600 }, { "osc2_sustain", 75 }, { "osc2_release", 2000 },
         { "filter_cutoff", 7000 }, { "filter_resonance", 20 },
-        { "chorus_mode", 1 }, { "master_analog_drift", 10 }
+        { "chorus_mode", 1 }, { "master_analog_drift", 10 },
+        { "reverb_size", 60 }, { "reverb_mix", 25 },
+        { "master_unison", 2 }
     }));
 
     presets.push_back (makePreset ("Dark Matter", "Pads", {
@@ -631,7 +665,9 @@ void PresetManager::buildFactoryPresets()
         { "osc2_attack", 1200 }, { "osc2_sustain", 70 }, { "osc2_release", 3000 },
         { "filter_cutoff", 1500 }, { "filter_resonance", 35 }, { "filter_env_amount", 30 },
         { "filter_decay", 800 }, { "filter_sustain", 20 },
-        { "chorus_mode", 2 }, { "master_analog_drift", 30 }
+        { "chorus_mode", 2 }, { "master_analog_drift", 30 },
+        { "reverb_size", 75 }, { "reverb_mix", 30 },
+        { "noise_type", 2 }, { "noise_level", 12 }, { "noise_attack", 1000 }, { "noise_sustain", 50 }, { "noise_release", 3000 }
     }));
 
     presets.push_back (makePreset ("Cathedral", "Pads", {
@@ -640,7 +676,9 @@ void PresetManager::buildFactoryPresets()
         { "osc2_waveform", 0 }, { "osc2_semitone", 7 }, { "osc2_level", 40 },
         { "osc2_attack", 3500 }, { "osc2_sustain", 95 }, { "osc2_release", 6000 },
         { "filter_cutoff", 5000 }, { "filter_resonance", 10 },
-        { "chorus_mode", 3 }, { "master_analog_drift", 20 }
+        { "chorus_mode", 3 }, { "master_analog_drift", 20 },
+        { "reverb_size", 90 }, { "reverb_mix", 40 },
+        { "noise_type", 1 }, { "noise_level", 6 }, { "noise_attack", 3000 }, { "noise_sustain", 80 }, { "noise_release", 6000 }
     }));
 
     presets.push_back (makePreset ("Underwater", "Pads", {
@@ -651,7 +689,9 @@ void PresetManager::buildFactoryPresets()
         { "filter_cutoff", 2000 }, { "filter_resonance", 40 }, { "filter_env_amount", 35 },
         { "filter_attack", 500 }, { "filter_decay", 1500 },
         { "lfo1_depth", 25 }, { "lfo1_rate", 0.2f }, { "lfo1_dest_cutoff", 1 },
-        { "chorus_mode", 2 }, { "master_analog_drift", 35 }
+        { "chorus_mode", 2 }, { "master_analog_drift", 35 },
+        { "reverb_size", 70 }, { "reverb_mix", 30 },
+        { "noise_type", 2 }, { "noise_level", 10 }, { "noise_attack", 1500 }, { "noise_sustain", 70 }, { "noise_release", 3000 }
     }));
 
     presets.push_back (makePreset ("Sunrise Strings", "Pads", {
@@ -662,7 +702,9 @@ void PresetManager::buildFactoryPresets()
         { "osc2_unison_voices", 3 }, { "osc2_unison_detune", 15 },
         { "osc2_attack", 2200 }, { "osc2_sustain", 85 }, { "osc2_release", 2500 },
         { "filter_cutoff", 3500 }, { "filter_resonance", 12 }, { "filter_env_amount", 15 },
-        { "chorus_mode", 3 }, { "master_analog_drift", 18 }
+        { "chorus_mode", 3 }, { "master_analog_drift", 18 },
+        { "reverb_size", 60 }, { "reverb_mix", 22 },
+        { "noise_type", 1 }, { "noise_level", 5 }, { "noise_attack", 2000 }, { "noise_sustain", 75 }, { "noise_release", 2500 }
     }));
 
     presets.push_back (makePreset ("Analog Heaven", "Pads", {
@@ -674,7 +716,9 @@ void PresetManager::buildFactoryPresets()
         { "osc2_attack", 1200 }, { "osc2_sustain", 80 }, { "osc2_release", 2000 },
         { "filter_cutoff", 3000 }, { "filter_resonance", 20 },
         { "lfo1_depth", 15 }, { "lfo1_rate", 0.5f }, { "lfo1_dest_pw", 1 },
-        { "chorus_mode", 3 }, { "master_analog_drift", 40 }
+        { "chorus_mode", 3 }, { "master_analog_drift", 40 },
+        { "reverb_size", 60 }, { "reverb_mix", 22 },
+        { "master_unison", 2 }
     }));
 
     presets.push_back (makePreset ("Nebula", "Pads", {
@@ -685,7 +729,9 @@ void PresetManager::buildFactoryPresets()
         { "filter_cutoff", 6000 }, { "filter_resonance", 15 },
         { "lfo1_depth", 12 }, { "lfo1_rate", 0.05f }, { "lfo1_dest_cutoff", 1 },
         { "lfo2_depth", 8 }, { "lfo2_rate", 0.12f }, { "lfo2_dest_volume", 1 },
-        { "chorus_mode", 3 }, { "master_analog_drift", 60 }
+        { "chorus_mode", 3 }, { "master_analog_drift", 60 },
+        { "reverb_size", 90 }, { "reverb_mix", 40 },
+        { "noise_type", 1 }, { "noise_level", 10 }, { "noise_attack", 4000 }, { "noise_sustain", 70 }, { "noise_release", 8000 }
     }));
 
     presets.push_back (makePreset ("Frozen Lake", "Pads", {
@@ -694,7 +740,9 @@ void PresetManager::buildFactoryPresets()
         { "osc2_waveform", 0 }, { "osc2_level", 55 }, { "osc2_fine_tune", -3 },
         { "osc2_attack", 3000 }, { "osc2_sustain", 85 }, { "osc2_release", 4000 },
         { "filter_cutoff", 4500 }, { "filter_resonance", 25 }, { "filter_env_amount", 10 },
-        { "chorus_mode", 2 }, { "master_analog_drift", 22 }
+        { "chorus_mode", 2 }, { "master_analog_drift", 22 },
+        { "reverb_size", 75 }, { "reverb_mix", 30 },
+        { "noise_type", 3 }, { "noise_level", 5 }, { "noise_attack", 2500 }, { "noise_sustain", 70 }, { "noise_release", 4000 }
     }));
 
     // --- LEADS (61-70) ---
@@ -1268,7 +1316,9 @@ void PresetManager::buildFactoryPresets()
         { "osc2_attack", 1800 }, { "osc2_sustain", 90 }, { "osc2_release", 3000 },
         { "filter_cutoff", 3000 }, { "filter_resonance", 12 },
         { "lfo1_depth", 8 }, { "lfo1_rate", 0.3f }, { "lfo1_dest_volume", 1 },
-        { "chorus_mode", 3 }, { "master_analog_drift", 20 }
+        { "chorus_mode", 3 }, { "master_analog_drift", 20 },
+        { "reverb_size", 65 }, { "reverb_mix", 25 },
+        { "noise_level", 5 }, { "noise_attack", 1500 }, { "noise_sustain", 30 }, { "noise_release", 3000 }
     }));
 
     presets.push_back (makePreset ("Ocean Wash", "Pads", {
@@ -1278,7 +1328,9 @@ void PresetManager::buildFactoryPresets()
         { "osc2_attack", 3500 }, { "osc2_sustain", 85 }, { "osc2_release", 6000 },
         { "filter_cutoff", 2000 }, { "filter_resonance", 20 },
         { "lfo1_depth", 30 }, { "lfo1_rate", 0.1f }, { "lfo1_dest_cutoff", 1 },
-        { "chorus_mode", 3 }, { "master_analog_drift", 40 }
+        { "chorus_mode", 3 }, { "master_analog_drift", 40 },
+        { "reverb_size", 85 }, { "reverb_mix", 35 },
+        { "noise_type", 1 }, { "noise_level", 12 }, { "noise_attack", 3000 }, { "noise_sustain", 70 }, { "noise_release", 6000 }
     }));
 
     presets.push_back (makePreset ("Twilight Zone", "Pads", {
@@ -1288,7 +1340,9 @@ void PresetManager::buildFactoryPresets()
         { "osc2_attack", 2500 }, { "osc2_sustain", 75 }, { "osc2_release", 4000 },
         { "filter_cutoff", 3500 }, { "filter_resonance", 25 }, { "filter_env_amount", 20 },
         { "lfo1_depth", 15 }, { "lfo1_rate", 0.08f }, { "lfo1_dest_pitch", 1 },
-        { "chorus_mode", 2 }, { "master_analog_drift", 35 }
+        { "chorus_mode", 2 }, { "master_analog_drift", 35 },
+        { "reverb_size", 75 }, { "reverb_mix", 30 },
+        { "noise_type", 1 }, { "noise_level", 8 }, { "noise_attack", 2000 }, { "noise_sustain", 60 }, { "noise_release", 4000 }
     }));
 
     presets.push_back (makePreset ("Molten Core", "Pads", {
@@ -1299,7 +1353,10 @@ void PresetManager::buildFactoryPresets()
         { "filter_cutoff", 1800 }, { "filter_resonance", 40 }, { "filter_env_amount", 35 },
         { "filter_decay", 1000 }, { "filter_sustain", 25 },
         { "lfo1_depth", 20 }, { "lfo1_rate", 0.15f }, { "lfo1_dest_cutoff", 1 },
-        { "master_analog_drift", 30 }
+        { "master_analog_drift", 30 },
+        { "reverb_size", 65 }, { "reverb_mix", 25 },
+        { "noise_type", 2 }, { "noise_level", 10 }, { "noise_attack", 1000 }, { "noise_sustain", 50 }, { "noise_release", 2500 },
+        { "master_unison", 2 }
     }));
 
     presets.push_back (makePreset ("Starfield", "Pads", {
@@ -1309,7 +1366,9 @@ void PresetManager::buildFactoryPresets()
         { "osc2_attack", 4500 }, { "osc2_sustain", 90 }, { "osc2_release", 7000 },
         { "filter_cutoff", 5000 }, { "filter_resonance", 10 },
         { "lfo1_depth", 8 }, { "lfo1_rate", 0.05f }, { "lfo1_dest_volume", 1 },
-        { "chorus_mode", 3 }, { "master_analog_drift", 25 }
+        { "chorus_mode", 3 }, { "master_analog_drift", 25 },
+        { "reverb_size", 85 }, { "reverb_mix", 35 },
+        { "noise_type", 3 }, { "noise_level", 6 }, { "noise_attack", 4000 }, { "noise_sustain", 80 }, { "noise_release", 7000 }
     }));
 
     presets.push_back (makePreset ("Midnight Velvet", "Pads", {
@@ -1320,7 +1379,10 @@ void PresetManager::buildFactoryPresets()
         { "osc2_attack", 1000 }, { "osc2_sustain", 85 }, { "osc2_release", 2000 },
         { "filter_cutoff", 2200 }, { "filter_resonance", 15 },
         { "lfo1_depth", 12 }, { "lfo1_rate", 0.4f }, { "lfo1_dest_pw", 1 },
-        { "chorus_mode", 2 }, { "master_analog_drift", 18 }
+        { "chorus_mode", 2 }, { "master_analog_drift", 18 },
+        { "reverb_size", 60 }, { "reverb_mix", 22 },
+        { "noise_type", 1 }, { "noise_level", 6 }, { "noise_attack", 800 }, { "noise_sustain", 70 }, { "noise_release", 2000 },
+        { "master_unison", 2 }
     }));
 
     presets.push_back (makePreset ("Prism", "Pads", {
@@ -1329,7 +1391,8 @@ void PresetManager::buildFactoryPresets()
         { "osc2_waveform", 3 }, { "osc2_octave", 1 }, { "osc2_level", 30 },
         { "osc2_attack", 1500 }, { "osc2_sustain", 80 }, { "osc2_release", 2500 },
         { "filter_cutoff", 4500 }, { "filter_resonance", 20 }, { "filter_env_amount", 15 },
-        { "chorus_mode", 3 }, { "master_analog_drift", 15 }
+        { "chorus_mode", 3 }, { "master_analog_drift", 15 },
+        { "reverb_size", 65 }, { "reverb_mix", 25 }
     }));
 
     presets.push_back (makePreset ("Solar Wind", "Pads", {
@@ -1340,7 +1403,9 @@ void PresetManager::buildFactoryPresets()
         { "filter_cutoff", 3000 }, { "filter_resonance", 25 },
         { "lfo1_depth", 20 }, { "lfo1_rate", 0.06f }, { "lfo1_dest_cutoff", 1 },
         { "lfo2_depth", 10 }, { "lfo2_rate", 0.1f }, { "lfo2_dest_volume", 1 },
-        { "chorus_mode", 3 }, { "master_analog_drift", 55 }
+        { "chorus_mode", 3 }, { "master_analog_drift", 55 },
+        { "reverb_size", 85 }, { "reverb_mix", 35 },
+        { "noise_type", 1 }, { "noise_level", 10 }, { "noise_attack", 5000 }, { "noise_sustain", 60 }, { "noise_release", 8000 }
     }));
 
     presets.push_back (makePreset ("Ethereal Strings", "Pads", {
@@ -1351,7 +1416,9 @@ void PresetManager::buildFactoryPresets()
         { "osc2_unison_voices", 3 }, { "osc2_unison_detune", 8 },
         { "osc2_attack", 1800 }, { "osc2_sustain", 85 }, { "osc2_release", 3000 },
         { "filter_cutoff", 4000 }, { "filter_resonance", 10 }, { "filter_env_amount", 10 },
-        { "chorus_mode", 2 }, { "master_analog_drift", 15 }
+        { "chorus_mode", 2 }, { "master_analog_drift", 15 },
+        { "reverb_size", 60 }, { "reverb_mix", 22 },
+        { "noise_type", 1 }, { "noise_level", 5 }, { "noise_attack", 1500 }, { "noise_sustain", 70 }, { "noise_release", 3000 }
     }));
 
     presets.push_back (makePreset ("Morning Mist", "Pads", {
@@ -1361,6 +1428,7 @@ void PresetManager::buildFactoryPresets()
         { "osc2_attack", 3000 }, { "osc2_sustain", 90 }, { "osc2_release", 4000 },
         { "filter_cutoff", 3500 }, { "filter_resonance", 8 },
         { "chorus_mode", 1 }, { "reverb_size", 70 }, { "reverb_mix", 30 },
+        { "noise_type", 1 }, { "noise_level", 8 }, { "noise_attack", 2500 }, { "noise_sustain", 80 }, { "noise_release", 4000 },
         { "master_analog_drift", 10 }
     }));
 
@@ -1373,7 +1441,9 @@ void PresetManager::buildFactoryPresets()
         { "filter_decay", 2000 },
         { "lfo1_depth", 15 }, { "lfo1_rate", 0.05f }, { "lfo1_dest_cutoff", 1 },
         { "chorus_mode", 3 }, { "reverb_size", 80 }, { "reverb_mix", 40 },
-        { "master_analog_drift", 45 }
+        { "noise_type", 2 }, { "noise_level", 10 }, { "noise_attack", 3000 }, { "noise_sustain", 50 }, { "noise_release", 6000 },
+        { "master_analog_drift", 45 },
+        { "master_unison", 2 }
     }));
 
     presets.push_back (makePreset ("Arctic Shimmer", "Pads", {
@@ -1384,6 +1454,7 @@ void PresetManager::buildFactoryPresets()
         { "osc2_attack", 1200 }, { "osc2_sustain", 85 }, { "osc2_release", 3000 },
         { "filter_cutoff", 6000 }, { "filter_resonance", 18 },
         { "chorus_mode", 2 }, { "reverb_size", 65 }, { "reverb_mix", 25 },
+        { "noise_type", 3 }, { "noise_level", 5 }, { "noise_attack", 1000 }, { "noise_sustain", 70 }, { "noise_release", 3000 },
         { "master_analog_drift", 12 }
     }));
 
@@ -1395,6 +1466,7 @@ void PresetManager::buildFactoryPresets()
         { "filter_cutoff", 2500 }, { "filter_resonance", 20 },
         { "lfo1_depth", 5 }, { "lfo1_rate", 6.0f }, { "lfo1_dest_volume", 1 },
         { "chorus_mode", 3 }, { "reverb_size", 85 }, { "reverb_mix", 35 },
+        { "noise_type", 1 }, { "noise_level", 8 }, { "noise_attack", 500 }, { "noise_sustain", 80 }, { "noise_release", 1500 },
         { "master_analog_drift", 25 }
     }));
 
@@ -1405,7 +1477,9 @@ void PresetManager::buildFactoryPresets()
         { "osc2_fine_tune", 3 },
         { "osc2_attack", 1000 }, { "osc2_sustain", 80 }, { "osc2_release", 2000 },
         { "filter_cutoff", 4000 }, { "filter_resonance", 25 }, { "filter_env_amount", 20 },
-        { "chorus_mode", 3 }, { "master_analog_drift", 15 }
+        { "chorus_mode", 3 }, { "master_analog_drift", 15 },
+        { "reverb_size", 60 }, { "reverb_mix", 22 },
+        { "master_unison", 2 }
     }));
 
     presets.push_back (makePreset ("Phantom Breath", "Pads", {
@@ -1417,6 +1491,7 @@ void PresetManager::buildFactoryPresets()
         { "lfo1_depth", 10 }, { "lfo1_rate", 0.12f }, { "lfo1_dest_cutoff", 1 },
         { "lfo2_depth", 5 }, { "lfo2_rate", 0.08f }, { "lfo2_dest_volume", 1 },
         { "chorus_mode", 3 }, { "reverb_size", 75 }, { "reverb_mix", 30 },
+        { "noise_type", 1 }, { "noise_level", 10 }, { "noise_attack", 4000 }, { "noise_sustain", 70 }, { "noise_release", 6000 },
         { "master_analog_drift", 30 }
     }));
 
@@ -2133,22 +2208,39 @@ juce::String PresetManager::getPresetCategory (int index) const
     return presets[static_cast<size_t> (index)].category;
 }
 
+juce::String PresetManager::getPresetKey (int index) const
+{
+    if (index < 0 || index >= getNumPresets())
+        return {};
+
+    if (isUserPreset (index))
+        return "user:" + presets[static_cast<size_t> (index)].name;
+
+    return "factory:" + juce::String (index) + ":" + presets[static_cast<size_t> (index)].name;
+}
+
+const Preset* PresetManager::getPreset (int index) const
+{
+    if (index < 0 || index >= getNumPresets())
+        return nullptr;
+
+    return &presets[static_cast<size_t> (index)];
+}
+
 void PresetManager::loadPreset (int index)
 {
     if (index < 0 || index >= getNumPresets())
         return;
 
     currentPreset = index;
-    const auto& preset = presets[static_cast<size_t> (index)];
+    applyPreset (presets[static_cast<size_t> (index)]);
+}
 
+void PresetManager::applyPreset (const Preset& preset)
+{
     for (const auto& [paramId, value] : preset.parameters)
-    {
         if (auto* p = apvts.getParameter (paramId))
-        {
-            float normValue = p->convertTo0to1 (value);
-            p->setValueNotifyingHost (normValue);
-        }
-    }
+            p->setValueNotifyingHost (p->convertTo0to1 (value));
 }
 
 juce::StringArray PresetManager::getPresetNames() const
@@ -2166,6 +2258,18 @@ juce::File PresetManager::getUserPresetDirectory() const
                    .getChildFile ("Presets");
     dir.createDirectory();
     return dir;
+}
+
+juce::File PresetManager::getUserPresetFile (const juce::String& name) const
+{
+    return getUserPresetDirectory().getChildFile (sanitisePresetFileName (name) + ".xml");
+}
+
+juce::String PresetManager::sanitisePresetFileName (const juce::String& name)
+{
+    auto trimmed = name.trim();
+    auto safe = trimmed.retainCharacters ("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_ ()");
+    return safe.isNotEmpty() ? safe : "Preset";
 }
 
 void PresetManager::loadUserPresets()
@@ -2204,25 +2308,45 @@ void PresetManager::loadUserPresets()
 
 void PresetManager::saveUserPreset (const juce::String& name)
 {
-    auto dir = getUserPresetDirectory();
-    auto file = dir.getChildFile (name + ".xml");
+    saveUserPreset (captureCurrentPreset (name));
+}
 
-    juce::XmlElement xml ("TillySynthPreset");
-    xml.setAttribute ("name", name);
-    xml.setAttribute ("category", "User");
+Preset PresetManager::captureCurrentPreset (const juce::String& name, const juce::String& category) const
+{
+    Preset preset;
+    preset.name = name;
+    preset.category = category;
 
-    // Save all current parameter values
     for (auto* param : apvts.processor.getParameters())
-    {
         if (auto* p = dynamic_cast<juce::RangedAudioParameter*> (param))
-        {
-            auto* paramEl = xml.createNewChildElement ("Param");
-            paramEl->setAttribute ("id", p->getParameterID());
-            paramEl->setAttribute ("value", static_cast<double> (p->convertFrom0to1 (p->getValue())));
-        }
+            preset.parameters.push_back ({ p->getParameterID(), p->convertFrom0to1 (p->getValue()) });
+
+    return preset;
+}
+
+void PresetManager::writePresetToFile (const Preset& preset, const juce::File& file) const
+{
+    juce::XmlElement xml ("TillySynthPreset");
+    xml.setAttribute ("name", preset.name);
+    xml.setAttribute ("category", preset.category);
+
+    for (const auto& [paramId, value] : preset.parameters)
+    {
+        auto* paramEl = xml.createNewChildElement ("Param");
+        paramEl->setAttribute ("id", paramId);
+        paramEl->setAttribute ("value", static_cast<double> (value));
     }
 
     xml.writeTo (file);
+}
+
+void PresetManager::saveUserPreset (const Preset& preset)
+{
+    auto userPreset = preset;
+    if (userPreset.category.isEmpty())
+        userPreset.category = "User";
+
+    writePresetToFile (userPreset, getUserPresetFile (userPreset.name));
     refreshUserPresets();
 }
 
@@ -2231,9 +2355,8 @@ void PresetManager::deleteUserPreset (int index)
     if (index < factoryPresetCount || index >= getNumPresets())
         return;
 
-    auto dir = getUserPresetDirectory();
     auto name = presets[static_cast<size_t> (index)].name;
-    auto file = dir.getChildFile (name + ".xml");
+    auto file = getUserPresetFile (name);
     file.deleteFile();
     refreshUserPresets();
 }
