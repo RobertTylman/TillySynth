@@ -4,12 +4,34 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "PluginProcessor.h"
 #include "UI/TillySynthLookAndFeel.h"
-#include <vector>
 #include <memory>
 #include <array>
 
 namespace tillysynth
 {
+
+class WheelComponent : public juce::Component
+{
+public:
+    WheelComponent (bool bipolar, const juce::String& label);
+    void paint (juce::Graphics& g) override;
+    void mouseDown (const juce::MouseEvent& e) override;
+    void mouseDrag (const juce::MouseEvent& e) override;
+    void mouseUp (const juce::MouseEvent& e) override;
+
+    float getValue() const { return value; }
+    void setValue (float v);
+    bool isDragging() const { return dragging; }
+
+    std::function<void (float)> onValueChange;
+
+private:
+    float valueFromY (float mouseY) const;
+    float value = 0.0f;
+    bool isBipolar = false;
+    bool dragging = false;
+    juce::String labelText;
+};
 
 class TillySynthEditor : public juce::AudioProcessorEditor, private juce::Timer
 {
@@ -58,10 +80,8 @@ private:
     void drawSectionBackground (juce::Graphics& g, juce::Rectangle<int> bounds,
                                 const juce::String& title);
     void drawVUMeter (juce::Graphics& g, juce::Rectangle<int> bounds);
-    void drawPanelWear (juce::Graphics& g, juce::Rectangle<int> bounds);
     void drawLFOWaveform (juce::Graphics& g, juce::Rectangle<int> bounds,
                           int waveformType, float phase, float rate, float depth);
-    void drawWheelIndicators (juce::Graphics& g, juce::Rectangle<int> bounds);
 
     void layoutOscillatorSection (juce::Rectangle<int> area, const juce::String& prefix);
     void layoutNoiseSection (juce::Rectangle<int> area);
@@ -73,6 +93,9 @@ private:
 
     TillySynthProcessor& processorRef;
     TillySynthLookAndFeel lookAndFeel;
+
+    // Window size button
+    juce::TextButton sizeButton;
 
     // Preset selector with nav buttons
     juce::ComboBox presetSelector;
@@ -87,6 +110,11 @@ private:
     // Transpose controls
     juce::TextButton transposeDown, transposeUp;
     juce::Label transposeLabel;
+    juce::Label transposeTitleLabel;
+
+    // Pitch/mod wheel components
+    WheelComponent pitchWheel { true, "PITCH" };
+    WheelComponent modWheel { false, "MOD" };
 
     // MIDI keyboard
     juce::MidiKeyboardComponent keyboard;
@@ -107,9 +135,6 @@ private:
     // VU meter values with analogue ballistics
     float vuLeft = 0.0f, vuRight = 0.0f;
 
-    // Panel wear seed for per-instance variation
-    juce::Random wearRandom;
-    std::vector<juce::Point<float>> wearScuffs;
 
     // Author link in header
     juce::HyperlinkButton authorLink { "Robbie Tylman",

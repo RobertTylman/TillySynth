@@ -164,9 +164,10 @@ void VoiceManager::renderNextSample (float& leftOut, float& rightOut)
     auto lfo1Out = lfo1.processSample();
     auto lfo2Out = lfo2.processSample();
 
-    // Combine both LFOs (additive)
+    // Combine both LFOs (additive) + mod wheel vibrato via LFO1's raw waveform
     float totalFilterMod = lfo1Out.cutoffMod + lfo2Out.cutoffMod;
-    float totalPitchMod  = lfo1Out.pitchMod  + lfo2Out.pitchMod;
+    float modWheelVibrato = lfo1.getRawSample() * modWheelValue;
+    float totalPitchMod  = lfo1Out.pitchMod  + lfo2Out.pitchMod + modWheelVibrato;
     float totalVolumeMod = lfo1Out.volumeMod + lfo2Out.volumeMod;
     float totalPWMod     = lfo1Out.pwMod     + lfo2Out.pwMod;
 
@@ -291,6 +292,11 @@ void VoiceManager::setGlideTime (float ms)
 void VoiceManager::setPitchBendRange (int semitones)
 {
     pitchBendRange = semitones;
+}
+
+void VoiceManager::setModWheelValue (float value01)
+{
+    modWheelValue = juce::jlimit (0.0f, 1.0f, value01);
 }
 
 int VoiceManager::findFreeVoice() const

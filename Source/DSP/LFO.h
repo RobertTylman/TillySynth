@@ -31,6 +31,9 @@ public:
     float getRate() const { return rate; }
     float getDepth() const { return depth; }
 
+    // Raw -1..1 waveform value (no depth scaling) for mod wheel vibrato
+    float getRawSample() const;
+
 private:
     float generateSample();
 

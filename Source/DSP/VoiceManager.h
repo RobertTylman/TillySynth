@@ -54,6 +54,7 @@ public:
     void setMonoLegato (bool enabled);
     void setGlideTime (float ms);
     void setPitchBendRange (int semitones);
+    void setModWheelValue (float value01);
 
     AnalogueDriftEngine& getDriftEngine() { return driftEngine; }
     const LFO& getLFO1() const { return lfo1; }
@@ -75,6 +76,7 @@ private:
     float glideTimeMs = 0.0f;
     int pitchBendRange = 2;
     float currentPitchBend = 0.0f;
+    float modWheelValue = 0.0f;
 
     int noteOrderCounter = 0;
     bool sustainPedalDown = false;

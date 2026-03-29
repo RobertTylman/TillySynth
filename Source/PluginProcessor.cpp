@@ -248,7 +248,9 @@ void TillySynthProcessor::handleMidiMessage (const juce::MidiMessage& msg)
     }
     else if (msg.isControllerOfType (1))
     {
-        modWheelUI.store (msg.getControllerValue() / 127.0f);
+        float val = msg.getControllerValue() / 127.0f;
+        modWheelUI.store (val);
+        voiceManager.setModWheelValue (val);
     }
     else if (msg.isControllerOfType (64))
     {
@@ -256,6 +258,14 @@ void TillySynthProcessor::handleMidiMessage (const juce::MidiMessage& msg)
     }
     else if (msg.isAllNotesOff() || msg.isAllSoundOff())
         voiceManager.handleAllNotesOff();
+}
+
+void TillySynthProcessor::setPitchBendFromUI (float normalised)
+{
+    int midiValue = static_cast<int> (normalised * 8192.0f) + 8192;
+    midiValue = juce::jlimit (0, 16383, midiValue);
+    voiceManager.handlePitchWheel (midiValue);
+    pitchBendUI.store (normalised);
 }
 
 juce::AudioProcessorEditor* TillySynthProcessor::createEditor()

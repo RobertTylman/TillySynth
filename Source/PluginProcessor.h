@@ -47,6 +47,9 @@ public:
     int getTranspose() const { return transposeSemitones; }
     PresetManager& getPresetManager() { return presetManager; }
 
+    // UI-driven pitch bend (maps normalised -1..1 to MIDI pitch wheel range)
+    void setPitchBendFromUI (float normalised);
+
     // Access drift engine for sensor state queries
     AnalogueDriftEngine& getDriftEngine() { return voiceManager.getDriftEngine(); }
 

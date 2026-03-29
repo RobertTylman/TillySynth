@@ -58,6 +58,22 @@ void LFO::setDestinations (bool cutoff, bool pitch, bool volume, bool pw)
     destPW     = pw;
 }
 
+float LFO::getRawSample() const
+{
+    switch (waveform)
+    {
+        case Waveform::Sine:
+            return std::sin (phase * juce::MathConstants<float>::twoPi);
+        case Waveform::Sawtooth:
+            return 2.0f * phase - 1.0f;
+        case Waveform::Square:
+            return (phase < 0.5f) ? 1.0f : -1.0f;
+        case Waveform::Triangle:
+            return (phase < 0.5f) ? (4.0f * phase - 1.0f) : (3.0f - 4.0f * phase);
+    }
+    return 0.0f;
+}
+
 float LFO::generateSample()
 {
     switch (waveform)
