@@ -36,11 +36,18 @@ Unlike static digital recreations, TillySynth feels alive. At its core is a uniq
 *   **BBD-Style Chorus**: A meticulously modeled Bucket Brigade Device chorus with classic I, II, and I+II modes. Captures the iconic "lushness" with subtle wow and flutter.
 *   **Glide / Portamento**: Smooth pitch transitions for both monophonic and polyphonic patches.
 
+### 🧪 Preset Curation Workflow
+*   **Preset Review App**: A separate desktop app that loads every preset, plays a short audition hook, and lets you rate sounds from 1-5 stars.
+*   **Inline Notes & Ratings**: Review notes are saved per preset so you can leave comments like "great attack" or "too harsh up top" and revisit them later.
+*   **Variant Generation**: Generate new user presets from promising sounds, keep the winners, and delete weak candidates individually or in bulk.
+*   **Visible Scoring Pass**: The review UI shows the full preset list with ratings and note previews, making iterative pruning much faster than bouncing between plugin windows and CSVs.
+
 ## 🛠️ Technical Stack
 
 *   **Framework**: [JUCE 8.0.4](https://juce.com/)
 *   **Language**: Modern C++17
 *   **Build System**: CMake with [CPM.cmake](https://github.com/cpm-cmake/CPM.cmake)
+*   **Tools**: JUCE plugin targets plus a standalone preset-review desktop app
 *   **Platform Integration**: 
     *   **macOS**: IOKit & CoreMotion for hardware telemetry.
     *   **Windows**: WMI-based thermal polling.
@@ -71,7 +78,22 @@ cmake -B build -S .
 cmake --build build --config Release
 ```
 
-The build will generate **VST3**, **AU** (macOS only), and **Standalone** versions of the plugin.
+The build will generate **VST3**, **AU** (macOS only), and **Standalone** versions of the plugin, plus the **TillySynth Preset Review** desktop app.
+
+### Launching The Preset Review App
+```bash
+open 'build/TillyPresetReview_artefacts/Release/TillySynth Preset Review.app'
+```
+
+Use the review app to:
+*   audition presets with built-in hooks
+*   rate them 1-5 stars
+*   leave notes for each preset
+*   click any preset in the list to review it again
+*   generate new user variants from strong presets
+*   delete weak generated/user presets individually or in batches
+
+Review ratings and notes are saved in your user application data folder, while generated presets are written to the normal TillySynth user preset directory.
 
 ---
 
