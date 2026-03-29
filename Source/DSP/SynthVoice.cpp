@@ -9,8 +9,10 @@ void SynthVoice::prepare (double sr, int samplesPerBlock)
     sampleRate = sr;
     osc1.prepare (sr, samplesPerBlock);
     osc2.prepare (sr, samplesPerBlock);
+    noiseOsc.prepare (sr, samplesPerBlock);
     ampEnv1.prepare (sr);
     ampEnv2.prepare (sr);
+    noiseEnv.prepare (sr);
     filterEnv.prepare (sr);
     filter.prepare (sr, samplesPerBlock);
 
@@ -22,8 +24,10 @@ void SynthVoice::reset()
 {
     osc1.reset();
     osc2.reset();
+    noiseOsc.reset();
     ampEnv1.reset();
     ampEnv2.reset();
+    noiseEnv.reset();
     filterEnv.reset();
     filter.reset();
     currentNote = -1;
@@ -64,6 +68,7 @@ void SynthVoice::noteOn (int midiNote, float velocity, bool legatoRetrigger)
 
     ampEnv1.noteOn();
     ampEnv2.noteOn();
+    noiseEnv.noteOn();
     filterEnv.noteOn();
 
     osc1.reset();
@@ -76,6 +81,7 @@ void SynthVoice::noteOff()
     noteHeld = false;
     ampEnv1.noteOff();
     ampEnv2.noteOff();
+    noiseEnv.noteOff();
     filterEnv.noteOff();
 }
 
@@ -102,13 +108,16 @@ float SynthVoice::processSample (float lfoFilterMod, float lfoPitchMod,
 
             ampEnv1.reset();
             ampEnv2.reset();
+            noiseEnv.reset();
             filterEnv.reset();
             osc1.reset();
             osc2.reset();
+            noiseOsc.reset();
             filter.reset();
 
             ampEnv1.noteOn();
             ampEnv2.noteOn();
+            noiseEnv.noteOn();
             filterEnv.noteOn();
 
             return 0.0f;
@@ -139,11 +148,13 @@ float SynthVoice::processSample (float lfoFilterMod, float lfoPitchMod,
 
     float osc1Sample = osc1.processSample();
     float osc2Sample = osc2.processSample();
+    float noiseSample = noiseOsc.processSample();
 
     float env1 = ampEnv1.processSample();
     float env2 = ampEnv2.processSample();
+    float envN = noiseEnv.processSample();
 
-    float mixed = osc1Sample * env1 + osc2Sample * env2;
+    float mixed = osc1Sample * env1 + osc2Sample * env2 + noiseSample * envN;
 
     // Volume LFO modulation
     float volumeScale = 1.0f + lfoVolumeMod * 0.5f;
@@ -178,7 +189,7 @@ float SynthVoice::processSample (float lfoFilterMod, float lfoPitchMod,
 
 bool SynthVoice::isActive() const
 {
-    return stealing || ampEnv1.isActive() || ampEnv2.isActive();
+    return stealing || ampEnv1.isActive() || ampEnv2.isActive() || noiseEnv.isActive();
 }
 
 void SynthVoice::setOsc1Params (Waveform wf, int octave, int semitone, float fineTuneCents,
@@ -219,6 +230,18 @@ void SynthVoice::setAmpEnv1Params (float attackMs, float decayMs, float sustain0
 void SynthVoice::setAmpEnv2Params (float attackMs, float decayMs, float sustain01, float releaseMs)
 {
     ampEnv2.setParameters (attackMs, decayMs, sustain01, releaseMs);
+}
+
+void SynthVoice::setNoiseParams (NoiseType type, float level01, float shRateHz)
+{
+    noiseOsc.setNoiseType (type);
+    noiseOsc.setLevel (level01);
+    noiseOsc.setSHRate (shRateHz);
+}
+
+void SynthVoice::setNoiseEnvParams (float attackMs, float decayMs, float sustain01, float releaseMs)
+{
+    noiseEnv.setParameters (attackMs, decayMs, sustain01, releaseMs);
 }
 
 void SynthVoice::setFilterEnvParams (float attackMs, float decayMs, float sustain01, float releaseMs)

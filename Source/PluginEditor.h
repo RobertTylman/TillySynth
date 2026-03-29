@@ -60,9 +60,11 @@ private:
     void drawVUMeter (juce::Graphics& g, juce::Rectangle<int> bounds);
     void drawPanelWear (juce::Graphics& g, juce::Rectangle<int> bounds);
     void drawLFOWaveform (juce::Graphics& g, juce::Rectangle<int> bounds,
-                          int waveformType, float phase, float rate);
+                          int waveformType, float phase, float rate, float depth);
+    void drawWheelIndicators (juce::Graphics& g, juce::Rectangle<int> bounds);
 
     void layoutOscillatorSection (juce::Rectangle<int> area, const juce::String& prefix);
+    void layoutNoiseSection (juce::Rectangle<int> area);
     void layoutFilterSection (juce::Rectangle<int> area);
     void layoutLFOSection (juce::Rectangle<int> area, const juce::String& prefix);
     void layoutChorusSection (juce::Rectangle<int> area);
@@ -81,6 +83,10 @@ private:
     juce::Slider masterVolumeSlider;
     juce::Label masterVolumeLabel;
     std::unique_ptr<SliderAttachment> masterVolumeAttachment;
+
+    // Transpose controls
+    juce::TextButton transposeDown, transposeUp;
+    juce::Label transposeLabel;
 
     // MIDI keyboard
     juce::MidiKeyboardComponent keyboard;

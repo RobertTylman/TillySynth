@@ -42,6 +42,9 @@ public:
     juce::AudioProcessorValueTreeState& getAPVTS() { return apvts; }
 
     juce::MidiKeyboardState& getKeyboardState() { return keyboardState; }
+
+    void setTranspose (int semitones) { transposeSemitones = juce::jlimit (-12, 12, semitones); }
+    int getTranspose() const { return transposeSemitones; }
     PresetManager& getPresetManager() { return presetManager; }
 
     // Access drift engine for sensor state queries
@@ -68,6 +71,10 @@ public:
     std::atomic<float> lfo1Rate { 1.0f };
     std::atomic<float> lfo2Rate { 1.0f };
 
+    // Pitch bend and mod wheel state for UI indicators (normalised -1..1 and 0..1)
+    std::atomic<float> pitchBendUI { 0.0f };
+    std::atomic<float> modWheelUI { 0.0f };
+
 private:
     void updateParametersFromAPVTS();
     void handleMidiMessage (const juce::MidiMessage& msg);
@@ -81,6 +88,7 @@ private:
 
     PresetManager presetManager;
     juce::SmoothedValue<float> masterVolume;
+    int transposeSemitones = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TillySynthProcessor)
 };

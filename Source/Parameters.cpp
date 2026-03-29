@@ -7,6 +7,7 @@ static juce::StringArray waveformChoices { "Sine", "Sawtooth", "Square", "Triang
 static juce::StringArray filterModeChoices { "Low-pass", "High-pass", "Band-pass", "Notch" };
 static juce::StringArray filterSlopeChoices { "12 dB/oct", "24 dB/oct" };
 static juce::StringArray chorusModeChoices { "Off", "I", "II", "I+II" };
+static juce::StringArray noiseTypeChoices { "White", "Pink", "Brown", "Blue", "Digital" };
 
 static void addOscillatorParams (juce::AudioProcessorValueTreeState::ParameterLayout& layout,
                                  const juce::String& prefix, const juce::String& name)
@@ -131,6 +132,36 @@ static void addLFOParams (juce::AudioProcessorValueTreeState::ParameterLayout& l
         juce::ParameterID { prefix + "_dest_pw", 1 }, name + " -> PW", false));
 }
 
+static void addNoiseParams (juce::AudioProcessorValueTreeState::ParameterLayout& layout)
+{
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { "noise_type", 1 }, "Noise Type", noiseTypeChoices, 0));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "noise_level", 1 }, "Noise Level",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "noise_attack", 1 }, "Noise Attack",
+        juce::NormalisableRange<float> (0.0f, 10000.0f, 1.0f, 0.3f), 5.0f));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "noise_decay", 1 }, "Noise Decay",
+        juce::NormalisableRange<float> (0.0f, 10000.0f, 1.0f, 0.3f), 200.0f));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "noise_sustain", 1 }, "Noise Sustain",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 70.0f));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "noise_release", 1 }, "Noise Release",
+        juce::NormalisableRange<float> (0.0f, 10000.0f, 1.0f, 0.3f), 300.0f));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "noise_sh_rate", 1 }, "Noise S&H Rate",
+        juce::NormalisableRange<float> (1.0f, 20000.0f, 0.1f, 0.25f), 1000.0f));
+}
+
 static void addChorusParams (juce::AudioProcessorValueTreeState::ParameterLayout& layout)
 {
     layout.add (std::make_unique<juce::AudioParameterChoice> (
@@ -201,6 +232,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
 
     addOscillatorParams (layout, "osc1", "Osc 1");
     addOscillatorParams (layout, "osc2", "Osc 2");
+    addNoiseParams (layout);
     addFilterParams (layout);
     addLFOParams (layout, "lfo1", "LFO 1");
     addLFOParams (layout, "lfo2", "LFO 2");

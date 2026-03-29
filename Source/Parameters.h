@@ -78,6 +78,15 @@ namespace ParamIDs
     inline constexpr const char* reverbMix         = "reverb_mix";
     inline constexpr const char* reverbWidth       = "reverb_width";
 
+    // Noise
+    inline constexpr const char* noiseType       = "noise_type";
+    inline constexpr const char* noiseLevel      = "noise_level";
+    inline constexpr const char* noiseAttack     = "noise_attack";
+    inline constexpr const char* noiseDecay      = "noise_decay";
+    inline constexpr const char* noiseSustain    = "noise_sustain";
+    inline constexpr const char* noiseRelease    = "noise_release";
+    inline constexpr const char* noiseSHRate     = "noise_sh_rate";
+
     // Master
     inline constexpr const char* masterVolume      = "master_volume";
     inline constexpr const char* masterPolyphony   = "master_polyphony";

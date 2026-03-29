@@ -32,6 +32,7 @@ target_sources(TillySynth PRIVATE
     Source/Parameters.cpp
     Source/PresetManager.cpp
     Source/DSP/Oscillator.cpp
+    Source/DSP/NoiseOscillator.cpp
     Source/DSP/Envelope.cpp
     Source/DSP/SubtractiveFilter.cpp
     Source/DSP/LFO.cpp

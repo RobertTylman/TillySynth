@@ -163,6 +163,16 @@ void TillySynthProcessor::updateParametersFromAPVTS()
         getFloat (ParamIDs::osc2Attack), getFloat (ParamIDs::osc2Decay),
         getFloat (ParamIDs::osc2Sustain) / 100.0f, getFloat (ParamIDs::osc2Release));
 
+    // Noise
+    voiceManager.updateNoiseParams (
+        static_cast<NoiseType> (getInt (ParamIDs::noiseType)),
+        getFloat (ParamIDs::noiseLevel) / 100.0f,
+        getFloat (ParamIDs::noiseSHRate));
+
+    voiceManager.updateNoiseEnv (
+        getFloat (ParamIDs::noiseAttack), getFloat (ParamIDs::noiseDecay),
+        getFloat (ParamIDs::noiseSustain) / 100.0f, getFloat (ParamIDs::noiseRelease));
+
     // Filter
     voiceManager.updateFilterParams (
         static_cast<FilterMode> (getInt (ParamIDs::filterMode)),
@@ -222,11 +232,28 @@ void TillySynthProcessor::updateParametersFromAPVTS()
 void TillySynthProcessor::handleMidiMessage (const juce::MidiMessage& msg)
 {
     if (msg.isNoteOn())
-        voiceManager.handleNoteOn (msg.getNoteNumber(), msg.getFloatVelocity());
+    {
+        int note = juce::jlimit (0, 127, msg.getNoteNumber() + transposeSemitones);
+        voiceManager.handleNoteOn (note, msg.getFloatVelocity());
+    }
     else if (msg.isNoteOff())
-        voiceManager.handleNoteOff (msg.getNoteNumber());
+    {
+        int note = juce::jlimit (0, 127, msg.getNoteNumber() + transposeSemitones);
+        voiceManager.handleNoteOff (note);
+    }
     else if (msg.isPitchWheel())
+    {
         voiceManager.handlePitchWheel (msg.getPitchWheelValue());
+        pitchBendUI.store (static_cast<float> (msg.getPitchWheelValue() - 8192) / 8192.0f);
+    }
+    else if (msg.isControllerOfType (1))
+    {
+        modWheelUI.store (msg.getControllerValue() / 127.0f);
+    }
+    else if (msg.isControllerOfType (64))
+    {
+        voiceManager.handleSustainPedal (msg.getControllerValue() >= 64);
+    }
     else if (msg.isAllNotesOff() || msg.isAllSoundOff())
         voiceManager.handleAllNotesOff();
 }

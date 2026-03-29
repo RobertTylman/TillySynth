@@ -1,5 +1,6 @@
 #pragma once
 #include "SynthVoice.h"
+#include "NoiseOscillator.h"
 #include "LFO.h"
 #include "AnalogueDriftEngine.h"
 #include <juce_audio_basics/juce_audio_basics.h>
@@ -21,6 +22,7 @@ public:
     void handleNoteOn (int midiNote, float velocity);
     void handleNoteOff (int midiNote);
     void handlePitchWheel (int pitchWheelValue);
+    void handleSustainPedal (bool isDown);
     void handleAllNotesOff();
 
     void renderNextSample (float& leftOut, float& rightOut);
@@ -36,6 +38,9 @@ public:
     void updateAmpEnv1 (float attack, float decay, float sustain, float release);
     void updateAmpEnv2 (float attack, float decay, float sustain, float release);
     void updateFilterEnv (float attack, float decay, float sustain, float release);
+
+    void updateNoiseParams (NoiseType type, float level, float shRate);
+    void updateNoiseEnv (float attack, float decay, float sustain, float release);
 
     void updateFilterParams (FilterMode mode, bool is24dB, float cutoff, float resonance,
                              float envAmount, float keyTracking, float velocity);
@@ -72,6 +77,8 @@ private:
     float currentPitchBend = 0.0f;
 
     int noteOrderCounter = 0;
+    bool sustainPedalDown = false;
+    std::array<bool, 128> sustainedNotes {};
 
     // Track held notes for mono legato
     std::array<int, 128> heldNotes {};

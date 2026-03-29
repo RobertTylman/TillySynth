@@ -25,6 +25,8 @@ void VoiceManager::reset()
     lfo1.reset();
     lfo2.reset();
     noteOrderCounter = 0;
+    sustainPedalDown = false;
+    sustainedNotes.fill (false);
     heldNotes.fill (-1);
     heldNoteCount = 0;
 }
@@ -105,10 +107,38 @@ void VoiceManager::handleNoteOff (int midiNote)
         return;
     }
 
+    if (sustainPedalDown)
+    {
+        sustainedNotes[static_cast<size_t> (midiNote)] = true;
+        return;
+    }
+
     for (auto& voice : voices)
     {
         if (voice.getCurrentNote() == midiNote && voice.isNoteHeld())
             voice.noteOff();
+    }
+}
+
+void VoiceManager::handleSustainPedal (bool isDown)
+{
+    sustainPedalDown = isDown;
+
+    if (! isDown)
+    {
+        // Release all notes that were sustained
+        for (int note = 0; note < 128; ++note)
+        {
+            if (sustainedNotes[static_cast<size_t> (note)])
+            {
+                sustainedNotes[static_cast<size_t> (note)] = false;
+                for (auto& voice : voices)
+                {
+                    if (voice.getCurrentNote() == note && voice.isNoteHeld())
+                        voice.noteOff();
+                }
+            }
+        }
     }
 }
 
@@ -123,6 +153,8 @@ void VoiceManager::handleAllNotesOff()
     for (auto& voice : voices)
         voice.noteOff();
 
+    sustainPedalDown = false;
+    sustainedNotes.fill (false);
     heldNotes.fill (-1);
     heldNoteCount = 0;
 }
@@ -198,6 +230,18 @@ void VoiceManager::updateFilterEnv (float attack, float decay, float sustain, fl
 {
     for (auto& voice : voices)
         voice.setFilterEnvParams (attack, decay, sustain, release);
+}
+
+void VoiceManager::updateNoiseParams (NoiseType type, float level, float shRate)
+{
+    for (auto& voice : voices)
+        voice.setNoiseParams (type, level, shRate);
+}
+
+void VoiceManager::updateNoiseEnv (float attack, float decay, float sustain, float release)
+{
+    for (auto& voice : voices)
+        voice.setNoiseEnvParams (attack, decay, sustain, release);
 }
 
 void VoiceManager::updateFilterParams (FilterMode mode, bool is24dB, float cutoff, float resonance,

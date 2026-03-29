@@ -1,5 +1,6 @@
 #pragma once
 #include "Oscillator.h"
+#include "NoiseOscillator.h"
 #include "Envelope.h"
 #include "SubtractiveFilter.h"
 
@@ -40,6 +41,10 @@ public:
     void setAmpEnv2Params (float attackMs, float decayMs, float sustain01, float releaseMs);
     void setFilterEnvParams (float attackMs, float decayMs, float sustain01, float releaseMs);
 
+    // Noise params
+    void setNoiseParams (NoiseType type, float level01, float shRateHz);
+    void setNoiseEnvParams (float attackMs, float decayMs, float sustain01, float releaseMs);
+
     // Filter params
     void setFilterParams (FilterMode mode, bool is24dB, float cutoffHz, float resonance01,
                           float envAmount, float keyTracking01, float velocity01);
@@ -52,9 +57,11 @@ private:
 
     Oscillator osc1;
     Oscillator osc2;
+    NoiseOscillator noiseOsc;
 
     Envelope ampEnv1;
     Envelope ampEnv2;
+    Envelope noiseEnv;
     Envelope filterEnv;
 
     SubtractiveFilter filter;
