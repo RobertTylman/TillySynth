@@ -33,6 +33,69 @@ private:
     juce::String labelText;
 };
 
+class WaveformSelector : public juce::Component
+{
+public:
+    WaveformSelector (juce::AudioProcessorValueTreeState& apvts,
+                      const juce::String& paramId);
+    ~WaveformSelector() override;
+
+    void paint (juce::Graphics& g) override;
+    void mouseDown (const juce::MouseEvent& e) override;
+
+private:
+    static void drawWaveformIcon (juce::Graphics& g, juce::Rectangle<float> bounds,
+                                  int waveformIndex, bool isSelected);
+
+    juce::AudioProcessorValueTreeState& apvtsRef;
+    juce::String parameterId;
+    std::unique_ptr<juce::ParameterAttachment> attachment;
+    int selectedIndex = 0;
+};
+
+class ADSRDisplay : public juce::Component, private juce::Timer
+{
+public:
+    ADSRDisplay (juce::AudioProcessorValueTreeState& apvts,
+                 const juce::String& attackId, const juce::String& decayId,
+                 const juce::String& sustainId, const juce::String& releaseId,
+                 juce::Colour colour);
+    ~ADSRDisplay() override;
+
+    void paint (juce::Graphics& g) override;
+    void mouseDown (const juce::MouseEvent& e) override;
+    void mouseDrag (const juce::MouseEvent& e) override;
+    void mouseUp (const juce::MouseEvent& e) override;
+    void mouseMove (const juce::MouseEvent& e) override;
+
+private:
+    enum class DragTarget { None, Attack, DecaySustain, Release };
+
+    DragTarget hitTestHandle (juce::Point<float> pos) const;
+
+    // Envelope geometry helpers
+    float normaliseTime (float ms) const;
+    float denormaliseTime (float norm) const;
+    juce::Point<float> getAttackPoint() const;
+    juce::Point<float> getDecayPoint() const;
+    juce::Point<float> getSustainEnd() const;
+    juce::Point<float> getReleasePoint() const;
+    juce::Rectangle<float> getDrawArea() const;
+
+    void timerCallback() override;
+
+    juce::AudioProcessorValueTreeState& apvtsRef;
+    juce::String aId, dId, sId, rId;
+    juce::Colour envColour;
+
+    DragTarget currentDrag = DragTarget::None;
+    DragTarget hoverTarget = DragTarget::None;
+
+    float attackMs = 10.0f, decayMs = 100.0f, sustain01 = 0.7f, releaseMs = 200.0f;
+
+    static constexpr float kHandleRadius = 5.0f;
+};
+
 class TillySynthEditor : public juce::AudioProcessorEditor, private juce::Timer
 {
 public:
@@ -79,20 +142,18 @@ private:
     void drawDriftScope (juce::Graphics& g, juce::Rectangle<int> bounds);
     void drawSectionBackground (juce::Graphics& g, juce::Rectangle<int> bounds,
                                 const juce::String& title);
+    void drawSubSectionLabel (juce::Graphics& g, juce::Rectangle<int> bounds,
+                              const juce::String& label);
     void drawVUMeter (juce::Graphics& g, juce::Rectangle<int> bounds);
     void drawLFOWaveform (juce::Graphics& g, juce::Rectangle<int> bounds,
                           int waveformType, float phase, float rate, float depth);
-    void drawEnvelopePreview (juce::Graphics& g, juce::Rectangle<int> bounds,
-                              float attackMs, float decayMs, float sustain01, float releaseMs,
-                              juce::Colour colour);
 
     void layoutOscillatorSection (juce::Rectangle<int> area, const juce::String& prefix);
     void layoutNoiseSection (juce::Rectangle<int> area);
     void layoutFilterSection (juce::Rectangle<int> area);
     void layoutLFOSection (juce::Rectangle<int> area, const juce::String& prefix);
     void layoutModEnvSection (juce::Rectangle<int> area, const juce::String& prefix);
-    void layoutChorusSection (juce::Rectangle<int> area);
-    void layoutReverbSection (juce::Rectangle<int> area);
+    void layoutEffectsSection (juce::Rectangle<int> area);
     void layoutMasterSection (juce::Rectangle<int> area);
 
     TillySynthProcessor& processorRef;
@@ -139,7 +200,6 @@ private:
     // VU meter values with analogue ballistics
     float vuLeft = 0.0f, vuRight = 0.0f;
 
-
     // Author link in header
     juce::HyperlinkButton authorLink { "Robbie Tylman",
         juce::URL ("https://roberttylman.github.io/portfolio-site/") };
@@ -151,6 +211,17 @@ private:
     std::map<juce::String, KnobWithLabel> knobs;
     std::map<juce::String, ComboWithLabel> combos;
     std::map<juce::String, ToggleWithLabel> toggles;
+
+    // Visual waveform selectors (replace combo boxes for waveforms)
+    std::map<juce::String, std::unique_ptr<WaveformSelector>> waveformSelectors;
+
+    // Interactive ADSR displays
+    std::unique_ptr<ADSRDisplay> osc1AdsrDisplay;
+    std::unique_ptr<ADSRDisplay> osc2AdsrDisplay;
+    std::unique_ptr<ADSRDisplay> noiseAdsrDisplay;
+    std::unique_ptr<ADSRDisplay> filterAdsrDisplay;
+    std::unique_ptr<ADSRDisplay> modenv1AdsrDisplay;
+    std::unique_ptr<ADSRDisplay> modenv2AdsrDisplay;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TillySynthEditor)
 };
