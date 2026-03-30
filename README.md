@@ -80,6 +80,10 @@ cmake --build build --config Release
 
 The build will generate **VST3**, **AU** (macOS only), and **Standalone** versions of the plugin, plus the **TillySynth Preset Review** desktop app.
 
+### Source Code Reference
+
+For a file-by-file walkthrough of the entire `Source/` tree, see [docs/SOURCE_FILE_REFERENCE.md](docs/SOURCE_FILE_REFERENCE.md).
+
 ### Launching The Preset Review App
 ```bash
 open 'build/TillyPresetReview_artefacts/Release/TillySynth Preset Review.app'
