@@ -47,7 +47,16 @@ public:
 
     // Filter params
     void setFilterParams (FilterMode mode, bool is24dB, float cutoffHz, float resonance01,
-                          float envAmount, float keyTracking01, float velocity01);
+                          float envAmount, float keyTracking01, float velocity01,
+                          FilterTarget target);
+
+    // Mod envelope params
+    void setModEnv1Params (float attackMs, float decayMs, float sustain01, float releaseMs,
+                           float amount01, bool destCutoff, bool destResonance,
+                           bool destPitch, bool destVolume);
+    void setModEnv2Params (float attackMs, float decayMs, float sustain01, float releaseMs,
+                           float amount01, bool destCutoff, bool destResonance,
+                           bool destPitch, bool destVolume);
 
     void setGlideTime (float glideMs);
 
@@ -63,8 +72,12 @@ private:
     Envelope ampEnv2;
     Envelope noiseEnv;
     Envelope filterEnv;
+    Envelope modEnv1;
+    Envelope modEnv2;
 
-    SubtractiveFilter filter;
+    SubtractiveFilter osc1Filter;
+    SubtractiveFilter osc2Filter;
+    SubtractiveFilter noiseFilter;
 
     int currentNote = -1;
     float currentVelocity = 0.0f;
@@ -79,9 +92,22 @@ private:
 
     // Filter state
     float baseCutoff = 8000.0f;
+    float baseResonance = 0.2f;
     float filterEnvAmount = 0.5f;
     float filterKeyTracking = 0.0f;
     float filterVelocitySens = 0.0f;
+    FilterTarget filterTarget = FilterTarget::All;
+
+    float modEnv1Amount = 0.0f;
+    float modEnv2Amount = 0.0f;
+    bool modEnv1DestCutoff = false;
+    bool modEnv1DestResonance = false;
+    bool modEnv1DestPitch = false;
+    bool modEnv1DestVolume = false;
+    bool modEnv2DestCutoff = false;
+    bool modEnv2DestResonance = false;
+    bool modEnv2DestPitch = false;
+    bool modEnv2DestVolume = false;
 
     double sampleRate = 44100.0;
 

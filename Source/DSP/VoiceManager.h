@@ -43,12 +43,18 @@ public:
     void updateNoiseEnv (float attack, float decay, float sustain, float release);
 
     void updateFilterParams (FilterMode mode, bool is24dB, float cutoff, float resonance,
-                             float envAmount, float keyTracking, float velocity);
+                             float envAmount, float keyTracking, float velocity,
+                             FilterTarget target);
 
     void updateLFO1 (Waveform wf, float rate, float depth,
                      bool destCutoff, bool destPitch, bool destVolume, bool destPW);
     void updateLFO2 (Waveform wf, float rate, float depth,
                      bool destCutoff, bool destPitch, bool destVolume, bool destPW);
+
+    void updateModEnv1 (float attack, float decay, float sustain, float release, float amount,
+                        bool destCutoff, bool destResonance, bool destPitch, bool destVolume);
+    void updateModEnv2 (float attack, float decay, float sustain, float release, float amount,
+                        bool destCutoff, bool destResonance, bool destPitch, bool destVolume);
 
     void setMaxPolyphony (int voices);
     void setMonoLegato (bool enabled);

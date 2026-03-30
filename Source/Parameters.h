@@ -39,6 +39,7 @@ namespace ParamIDs
     // Filter
     inline constexpr const char* filterMode        = "filter_mode";
     inline constexpr const char* filterSlope       = "filter_slope";
+    inline constexpr const char* filterTarget      = "filter_target";
     inline constexpr const char* filterCutoff      = "filter_cutoff";
     inline constexpr const char* filterResonance   = "filter_resonance";
     inline constexpr const char* filterEnvAmount   = "filter_env_amount";
@@ -66,6 +67,28 @@ namespace ParamIDs
     inline constexpr const char* lfo2DestPitch     = "lfo2_dest_pitch";
     inline constexpr const char* lfo2DestVolume    = "lfo2_dest_volume";
     inline constexpr const char* lfo2DestPW        = "lfo2_dest_pw";
+
+    // Mod Envelope 1
+    inline constexpr const char* modEnv1Attack         = "modenv1_attack";
+    inline constexpr const char* modEnv1Decay          = "modenv1_decay";
+    inline constexpr const char* modEnv1Sustain        = "modenv1_sustain";
+    inline constexpr const char* modEnv1Release        = "modenv1_release";
+    inline constexpr const char* modEnv1Amount         = "modenv1_amount";
+    inline constexpr const char* modEnv1DestCutoff     = "modenv1_dest_cutoff";
+    inline constexpr const char* modEnv1DestResonance  = "modenv1_dest_resonance";
+    inline constexpr const char* modEnv1DestPitch      = "modenv1_dest_pitch";
+    inline constexpr const char* modEnv1DestVolume     = "modenv1_dest_volume";
+
+    // Mod Envelope 2
+    inline constexpr const char* modEnv2Attack         = "modenv2_attack";
+    inline constexpr const char* modEnv2Decay          = "modenv2_decay";
+    inline constexpr const char* modEnv2Sustain        = "modenv2_sustain";
+    inline constexpr const char* modEnv2Release        = "modenv2_release";
+    inline constexpr const char* modEnv2Amount         = "modenv2_amount";
+    inline constexpr const char* modEnv2DestCutoff     = "modenv2_dest_cutoff";
+    inline constexpr const char* modEnv2DestResonance  = "modenv2_dest_resonance";
+    inline constexpr const char* modEnv2DestPitch      = "modenv2_dest_pitch";
+    inline constexpr const char* modEnv2DestVolume     = "modenv2_dest_volume";
 
     // Chorus
     inline constexpr const char* chorusMode        = "chorus_mode";

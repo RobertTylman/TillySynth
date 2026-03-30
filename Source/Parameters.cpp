@@ -6,6 +6,7 @@ namespace tillysynth
 static juce::StringArray waveformChoices { "Sine", "Sawtooth", "Square", "Triangle" };
 static juce::StringArray filterModeChoices { "Low-pass", "High-pass", "Band-pass", "Notch" };
 static juce::StringArray filterSlopeChoices { "12 dB/oct", "24 dB/oct" };
+static juce::StringArray filterTargetChoices { "Osc 1", "Osc 2", "Osc 1+2", "Noise", "All" };
 static juce::StringArray chorusModeChoices { "Off", "I", "II", "I+II" };
 static juce::StringArray noiseTypeChoices { "White", "Pink", "Brown", "Blue", "Digital" };
 
@@ -70,6 +71,9 @@ static void addFilterParams (juce::AudioProcessorValueTreeState::ParameterLayout
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { "filter_slope", 1 }, "Filter Slope", filterSlopeChoices, 1));
 
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { "filter_target", 1 }, "Filter Target", filterTargetChoices, 4));
+
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { "filter_cutoff", 1 }, "Filter Cutoff",
         juce::NormalisableRange<float> (20.0f, 20000.0f, 0.1f, 0.25f), 8000.0f));
@@ -130,6 +134,39 @@ static void addLFOParams (juce::AudioProcessorValueTreeState::ParameterLayout& l
         juce::ParameterID { prefix + "_dest_volume", 1 }, name + " -> Volume", false));
     layout.add (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { prefix + "_dest_pw", 1 }, name + " -> PW", false));
+}
+
+static void addModEnvParams (juce::AudioProcessorValueTreeState::ParameterLayout& layout,
+                             const juce::String& prefix, const juce::String& name)
+{
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { prefix + "_attack", 1 }, name + " Attack",
+        juce::NormalisableRange<float> (0.0f, 10000.0f, 1.0f, 0.3f), 5.0f));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { prefix + "_decay", 1 }, name + " Decay",
+        juce::NormalisableRange<float> (0.0f, 10000.0f, 1.0f, 0.3f), 200.0f));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { prefix + "_sustain", 1 }, name + " Sustain",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { prefix + "_release", 1 }, name + " Release",
+        juce::NormalisableRange<float> (0.0f, 10000.0f, 1.0f, 0.3f), 300.0f));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { prefix + "_amount", 1 }, name + " Amount",
+        juce::NormalisableRange<float> (-100.0f, 100.0f, 0.1f), 0.0f));
+
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { prefix + "_dest_cutoff", 1 }, name + " -> Cutoff", false));
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { prefix + "_dest_resonance", 1 }, name + " -> Resonance", false));
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { prefix + "_dest_pitch", 1 }, name + " -> Pitch", false));
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { prefix + "_dest_volume", 1 }, name + " -> Volume", false));
 }
 
 static void addNoiseParams (juce::AudioProcessorValueTreeState::ParameterLayout& layout)
@@ -236,6 +273,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
     addFilterParams (layout);
     addLFOParams (layout, "lfo1", "LFO 1");
     addLFOParams (layout, "lfo2", "LFO 2");
+    addModEnvParams (layout, "modenv1", "Mod Env 1");
+    addModEnvParams (layout, "modenv2", "Mod Env 2");
     addChorusParams (layout);
     addReverbParams (layout);
     addMasterParams (layout);

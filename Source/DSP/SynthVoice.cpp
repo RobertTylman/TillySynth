@@ -14,7 +14,11 @@ void SynthVoice::prepare (double sr, int samplesPerBlock)
     ampEnv2.prepare (sr);
     noiseEnv.prepare (sr);
     filterEnv.prepare (sr);
-    filter.prepare (sr, samplesPerBlock);
+    modEnv1.prepare (sr);
+    modEnv2.prepare (sr);
+    osc1Filter.prepare (sr, samplesPerBlock);
+    osc2Filter.prepare (sr, samplesPerBlock);
+    noiseFilter.prepare (sr, samplesPerBlock);
 
     // ~2ms fade-out for voice stealing
     stealFadeDecrement = 1.0f / static_cast<float> (sr * 0.002);
@@ -29,7 +33,11 @@ void SynthVoice::reset()
     ampEnv2.reset();
     noiseEnv.reset();
     filterEnv.reset();
-    filter.reset();
+    modEnv1.reset();
+    modEnv2.reset();
+    osc1Filter.reset();
+    osc2Filter.reset();
+    noiseFilter.reset();
     currentNote = -1;
     noteHeld = false;
 }
@@ -70,10 +78,15 @@ void SynthVoice::noteOn (int midiNote, float velocity, bool legatoRetrigger)
     ampEnv2.noteOn();
     noiseEnv.noteOn();
     filterEnv.noteOn();
+    modEnv1.noteOn();
+    modEnv2.noteOn();
 
     osc1.reset();
     osc2.reset();
-    filter.reset();
+    noiseOsc.reset();
+    osc1Filter.reset();
+    osc2Filter.reset();
+    noiseFilter.reset();
 }
 
 void SynthVoice::noteOff()
@@ -83,6 +96,8 @@ void SynthVoice::noteOff()
     ampEnv2.noteOff();
     noiseEnv.noteOff();
     filterEnv.noteOff();
+    modEnv1.noteOff();
+    modEnv2.noteOff();
 }
 
 float SynthVoice::processSample (float lfoFilterMod, float lfoPitchMod,
@@ -110,15 +125,21 @@ float SynthVoice::processSample (float lfoFilterMod, float lfoPitchMod,
             ampEnv2.reset();
             noiseEnv.reset();
             filterEnv.reset();
+            modEnv1.reset();
+            modEnv2.reset();
             osc1.reset();
             osc2.reset();
             noiseOsc.reset();
-            filter.reset();
+            osc1Filter.reset();
+            osc2Filter.reset();
+            noiseFilter.reset();
 
             ampEnv1.noteOn();
             ampEnv2.noteOn();
             noiseEnv.noteOn();
             filterEnv.noteOn();
+            modEnv1.noteOn();
+            modEnv2.noteOn();
 
             return 0.0f;
         }
@@ -131,10 +152,30 @@ float SynthVoice::processSample (float lfoFilterMod, float lfoPitchMod,
     else
         currentGlideNote += (targetNote - currentGlideNote) * glideCoeff;
 
+    float modEnv1Value = modEnv1.processSample() * modEnv1Amount;
+    float modEnv2Value = modEnv2.processSample() * modEnv2Amount;
+
+    float envCutoffMod = 0.0f;
+    float envResonanceMod = 0.0f;
+    float envPitchMod = 0.0f;
+    float envVolumeMod = 0.0f;
+
+    if (modEnv1DestCutoff)     envCutoffMod += modEnv1Value;
+    if (modEnv1DestResonance)  envResonanceMod += modEnv1Value;
+    if (modEnv1DestPitch)      envPitchMod += modEnv1Value;
+    if (modEnv1DestVolume)     envVolumeMod += modEnv1Value;
+
+    if (modEnv2DestCutoff)     envCutoffMod += modEnv2Value;
+    if (modEnv2DestResonance)  envResonanceMod += modEnv2Value;
+    if (modEnv2DestPitch)      envPitchMod += modEnv2Value;
+    if (modEnv2DestVolume)     envVolumeMod += modEnv2Value;
+
+    float totalPitchMod = lfoPitchMod + envPitchMod;
+
     float freq1 = calculateFrequency (currentGlideNote, osc1Octave, osc1Semitone,
-                                       osc1FineTune, lfoPitchMod, driftPitchCents);
+                                       osc1FineTune, totalPitchMod, driftPitchCents);
     float freq2 = calculateFrequency (currentGlideNote, osc2Octave, osc2Semitone,
-                                       osc2FineTune, lfoPitchMod, driftPitchCents);
+                                       osc2FineTune, totalPitchMod, driftPitchCents);
 
     osc1.setFrequency (freq1);
     osc2.setFrequency (freq2);
@@ -154,12 +195,9 @@ float SynthVoice::processSample (float lfoFilterMod, float lfoPitchMod,
     float env2 = ampEnv2.processSample();
     float envN = noiseEnv.processSample();
 
-    float mixed = osc1Sample * env1 + osc2Sample * env2 + noiseSample * envN;
-
-    // Volume LFO modulation
-    float volumeScale = 1.0f + lfoVolumeMod * 0.5f;
-    volumeScale = juce::jlimit (0.0f, 2.0f, volumeScale);
-    mixed *= volumeScale;
+    float osc1Signal = osc1Sample * env1;
+    float osc2Signal = osc2Sample * env2;
+    float noiseSignal = noiseSample * envN;
 
     // Filter modulation
     float filterEnvValue = filterEnv.processSample();
@@ -173,13 +211,48 @@ float SynthVoice::processSample (float lfoFilterMod, float lfoPitchMod,
 
     // LFO cutoff modulation (bipolar, scaled to useful range)
     float lfoCutoffMod = lfoFilterMod * baseCutoff * 0.5f;
+    float modEnvCutoffAmount = envCutoffMod * baseCutoff * 0.75f;
 
-    float modulatedCutoff = baseCutoff + envMod + keyTrackMod + velMod + lfoCutoffMod + driftCutoffHz;
+    float modulatedCutoff = baseCutoff + envMod + keyTrackMod + velMod + lfoCutoffMod + modEnvCutoffAmount + driftCutoffHz;
     modulatedCutoff = juce::jlimit (20.0f, 20000.0f, modulatedCutoff);
 
-    filter.setCutoff (modulatedCutoff);
+    float modulatedResonance = juce::jlimit (0.0f, 1.0f, baseResonance + envResonanceMod * 0.75f);
 
-    float output = filter.processSample (mixed);
+    osc1Filter.setCutoff (modulatedCutoff);
+    osc2Filter.setCutoff (modulatedCutoff);
+    noiseFilter.setCutoff (modulatedCutoff);
+    osc1Filter.setResonance (modulatedResonance);
+    osc2Filter.setResonance (modulatedResonance);
+    noiseFilter.setResonance (modulatedResonance);
+
+    switch (filterTarget)
+    {
+        case FilterTarget::Osc1:
+            osc1Signal = osc1Filter.processSample (osc1Signal);
+            break;
+        case FilterTarget::Osc2:
+            osc2Signal = osc2Filter.processSample (osc2Signal);
+            break;
+        case FilterTarget::BothOscillators:
+            osc1Signal = osc1Filter.processSample (osc1Signal);
+            osc2Signal = osc2Filter.processSample (osc2Signal);
+            break;
+        case FilterTarget::Noise:
+            noiseSignal = noiseFilter.processSample (noiseSignal);
+            break;
+        case FilterTarget::All:
+            osc1Signal = osc1Filter.processSample (osc1Signal);
+            osc2Signal = osc2Filter.processSample (osc2Signal);
+            noiseSignal = noiseFilter.processSample (noiseSignal);
+            break;
+    }
+
+    float mixed = osc1Signal + osc2Signal + noiseSignal;
+
+    // Volume LFO modulation
+    float volumeScale = 1.0f + (lfoVolumeMod + envVolumeMod) * 0.5f;
+    volumeScale = juce::jlimit (0.0f, 2.0f, volumeScale);
+    float output = mixed * volumeScale;
 
     if (stealing)
         output *= stealFadeLevel;
@@ -250,15 +323,46 @@ void SynthVoice::setFilterEnvParams (float attackMs, float decayMs, float sustai
 }
 
 void SynthVoice::setFilterParams (FilterMode mode, bool is24dB, float cutoffHz, float resonance01,
-                                   float envAmount, float keyTracking01, float velocity01)
+                                   float envAmount, float keyTracking01, float velocity01,
+                                   FilterTarget target)
 {
-    filter.setMode (mode);
-    filter.setSlope24dB (is24dB);
+    for (auto* filter : { &osc1Filter, &osc2Filter, &noiseFilter })
+    {
+        filter->setMode (mode);
+        filter->setSlope24dB (is24dB);
+        filter->setResonance (resonance01);
+    }
+
     baseCutoff = cutoffHz;
-    filter.setResonance (resonance01);
+    baseResonance = resonance01;
     filterEnvAmount = envAmount;
     filterKeyTracking = keyTracking01;
     filterVelocitySens = velocity01;
+    filterTarget = target;
+}
+
+void SynthVoice::setModEnv1Params (float attackMs, float decayMs, float sustain01, float releaseMs,
+                                   float amount01, bool destCutoff, bool destResonance,
+                                   bool destPitch, bool destVolume)
+{
+    modEnv1.setParameters (attackMs, decayMs, sustain01, releaseMs);
+    modEnv1Amount = amount01;
+    modEnv1DestCutoff = destCutoff;
+    modEnv1DestResonance = destResonance;
+    modEnv1DestPitch = destPitch;
+    modEnv1DestVolume = destVolume;
+}
+
+void SynthVoice::setModEnv2Params (float attackMs, float decayMs, float sustain01, float releaseMs,
+                                   float amount01, bool destCutoff, bool destResonance,
+                                   bool destPitch, bool destVolume)
+{
+    modEnv2.setParameters (attackMs, decayMs, sustain01, releaseMs);
+    modEnv2Amount = amount01;
+    modEnv2DestCutoff = destCutoff;
+    modEnv2DestResonance = destResonance;
+    modEnv2DestPitch = destPitch;
+    modEnv2DestVolume = destVolume;
 }
 
 void SynthVoice::setGlideTime (float glideMs)

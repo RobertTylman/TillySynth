@@ -82,11 +82,15 @@ private:
     void drawVUMeter (juce::Graphics& g, juce::Rectangle<int> bounds);
     void drawLFOWaveform (juce::Graphics& g, juce::Rectangle<int> bounds,
                           int waveformType, float phase, float rate, float depth);
+    void drawEnvelopePreview (juce::Graphics& g, juce::Rectangle<int> bounds,
+                              float attackMs, float decayMs, float sustain01, float releaseMs,
+                              juce::Colour colour);
 
     void layoutOscillatorSection (juce::Rectangle<int> area, const juce::String& prefix);
     void layoutNoiseSection (juce::Rectangle<int> area);
     void layoutFilterSection (juce::Rectangle<int> area);
     void layoutLFOSection (juce::Rectangle<int> area, const juce::String& prefix);
+    void layoutModEnvSection (juce::Rectangle<int> area, const juce::String& prefix);
     void layoutChorusSection (juce::Rectangle<int> area);
     void layoutReverbSection (juce::Rectangle<int> area);
     void layoutMasterSection (juce::Rectangle<int> area);

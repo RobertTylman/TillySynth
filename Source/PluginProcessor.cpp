@@ -181,7 +181,8 @@ void TillySynthProcessor::updateParametersFromAPVTS()
         getFloat (ParamIDs::filterResonance) / 100.0f,
         getFloat (ParamIDs::filterEnvAmount) / 100.0f,
         getFloat (ParamIDs::filterKeyTracking) / 100.0f,
-        getFloat (ParamIDs::filterVelocity) / 100.0f);
+        getFloat (ParamIDs::filterVelocity) / 100.0f,
+        static_cast<FilterTarget> (getInt (ParamIDs::filterTarget)));
 
     // Filter envelope
     voiceManager.updateFilterEnv (
@@ -203,6 +204,22 @@ void TillySynthProcessor::updateParametersFromAPVTS()
         getFloat (ParamIDs::lfo2Depth) / 100.0f,
         getBool (ParamIDs::lfo2DestCutoff), getBool (ParamIDs::lfo2DestPitch),
         getBool (ParamIDs::lfo2DestVolume), getBool (ParamIDs::lfo2DestPW));
+
+    // Mod envelope 1
+    voiceManager.updateModEnv1 (
+        getFloat (ParamIDs::modEnv1Attack), getFloat (ParamIDs::modEnv1Decay),
+        getFloat (ParamIDs::modEnv1Sustain) / 100.0f, getFloat (ParamIDs::modEnv1Release),
+        getFloat (ParamIDs::modEnv1Amount) / 100.0f,
+        getBool (ParamIDs::modEnv1DestCutoff), getBool (ParamIDs::modEnv1DestResonance),
+        getBool (ParamIDs::modEnv1DestPitch), getBool (ParamIDs::modEnv1DestVolume));
+
+    // Mod envelope 2
+    voiceManager.updateModEnv2 (
+        getFloat (ParamIDs::modEnv2Attack), getFloat (ParamIDs::modEnv2Decay),
+        getFloat (ParamIDs::modEnv2Sustain) / 100.0f, getFloat (ParamIDs::modEnv2Release),
+        getFloat (ParamIDs::modEnv2Amount) / 100.0f,
+        getBool (ParamIDs::modEnv2DestCutoff), getBool (ParamIDs::modEnv2DestResonance),
+        getBool (ParamIDs::modEnv2DestPitch), getBool (ParamIDs::modEnv2DestVolume));
 
     // Chorus
     chorus.setMode (static_cast<ChorusMode> (getInt (ParamIDs::chorusMode)));

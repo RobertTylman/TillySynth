@@ -246,10 +246,11 @@ void VoiceManager::updateNoiseEnv (float attack, float decay, float sustain, flo
 }
 
 void VoiceManager::updateFilterParams (FilterMode mode, bool is24dB, float cutoff, float resonance,
-                                        float envAmount, float keyTracking, float velocity)
+                                        float envAmount, float keyTracking, float velocity,
+                                        FilterTarget target)
 {
     for (auto& voice : voices)
-        voice.setFilterParams (mode, is24dB, cutoff, resonance, envAmount, keyTracking, velocity);
+        voice.setFilterParams (mode, is24dB, cutoff, resonance, envAmount, keyTracking, velocity, target);
 }
 
 void VoiceManager::updateLFO1 (Waveform wf, float rate, float depth,
@@ -268,6 +269,22 @@ void VoiceManager::updateLFO2 (Waveform wf, float rate, float depth,
     lfo2.setRate (rate);
     lfo2.setDepth (depth);
     lfo2.setDestinations (destCutoff, destPitch, destVolume, destPW);
+}
+
+void VoiceManager::updateModEnv1 (float attack, float decay, float sustain, float release, float amount,
+                                   bool destCutoff, bool destResonance, bool destPitch, bool destVolume)
+{
+    for (auto& voice : voices)
+        voice.setModEnv1Params (attack, decay, sustain, release, amount,
+                                destCutoff, destResonance, destPitch, destVolume);
+}
+
+void VoiceManager::updateModEnv2 (float attack, float decay, float sustain, float release, float amount,
+                                   bool destCutoff, bool destResonance, bool destPitch, bool destVolume)
+{
+    for (auto& voice : voices)
+        voice.setModEnv2Params (attack, decay, sustain, release, amount,
+                                destCutoff, destResonance, destPitch, destVolume);
 }
 
 void VoiceManager::setMaxPolyphony (int voices_)

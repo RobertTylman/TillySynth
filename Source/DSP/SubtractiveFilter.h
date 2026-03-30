@@ -5,6 +5,7 @@ namespace tillysynth
 {
 
 enum class FilterMode { LowPass = 0, HighPass, BandPass, Notch };
+enum class FilterTarget { Osc1 = 0, Osc2, BothOscillators, Noise, All };
 
 class SubtractiveFilter
 {

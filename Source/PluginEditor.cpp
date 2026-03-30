@@ -6,7 +6,7 @@ namespace tillysynth
 {
 
 static constexpr int kWindowWidth  = 1000;
-static constexpr int kWindowHeight = 780;
+static constexpr int kWindowHeight = 920;
 static constexpr int kHeaderHeight = 50;
 static constexpr int kDriftBarHeight = 36;
 static constexpr int kKeyboardHeight = 70;
@@ -221,6 +221,7 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
     // --- Filter ---
     combos["filter_mode"]  = createCombo ("filter_mode", "Mode", { "LP", "HP", "BP", "Notch" });
     combos["filter_slope"] = createCombo ("filter_slope", "Slope", { "12dB", "24dB" });
+    combos["filter_target"] = createCombo ("filter_target", "Target", { "Osc1", "Osc2", "Both", "Noise", "All" });
     knobs["filter_cutoff"]       = createKnob ("filter_cutoff", "Cutoff");
     knobs["filter_resonance"]    = createKnob ("filter_resonance", "Reso");
     knobs["filter_env_amount"]   = createKnob ("filter_env_amount", "Env");
@@ -246,6 +247,23 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
 
     addLFOControls ("lfo1");
     addLFOControls ("lfo2");
+
+    // --- Mod envelopes ---
+    auto addModEnvControls = [&] (const juce::String& prefix)
+    {
+        knobs[prefix + "_amount"] = createKnob (prefix + "_amount", "Amt");
+        knobs[prefix + "_attack"] = createKnob (prefix + "_attack", "A");
+        knobs[prefix + "_decay"] = createKnob (prefix + "_decay", "D");
+        knobs[prefix + "_sustain"] = createKnob (prefix + "_sustain", "S");
+        knobs[prefix + "_release"] = createKnob (prefix + "_release", "R");
+        toggles[prefix + "_dest_cutoff"] = createToggle (prefix + "_dest_cutoff", "Cut");
+        toggles[prefix + "_dest_resonance"] = createToggle (prefix + "_dest_resonance", "Res");
+        toggles[prefix + "_dest_pitch"] = createToggle (prefix + "_dest_pitch", "Pit");
+        toggles[prefix + "_dest_volume"] = createToggle (prefix + "_dest_volume", "Vol");
+    };
+
+    addModEnvControls ("modenv1");
+    addModEnvControls ("modenv2");
 
     // --- Chorus ---
     combos["chorus_mode"] = createCombo ("chorus_mode", "Mode", { "Off", "I", "II", "I+II" });
@@ -315,6 +333,7 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
 
     setComboTip ("filter_mode", "Filter type: Low-pass, High-pass, Band-pass, or Notch");
     setComboTip ("filter_slope", "Filter steepness: 12 or 24 dB per octave");
+    setComboTip ("filter_target", "Choose which source the filter affects: Osc 1, Osc 2, both oscillators, noise, or all");
     setKnobTip ("filter_cutoff", "Filter cutoff frequency in Hz");
     setKnobTip ("filter_resonance", "Filter resonance / emphasis at cutoff");
     setKnobTip ("filter_env_amount", "How much the filter envelope modulates cutoff");
@@ -338,6 +357,22 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
 
     addLFOTips ("lfo1");
     addLFOTips ("lfo2");
+
+    auto addModEnvTips = [&] (const juce::String& prefix)
+    {
+        setKnobTip (prefix + "_amount", "Mod envelope amount. Positive and negative values are allowed");
+        setKnobTip (prefix + "_attack", "Mod envelope attack time (ms)");
+        setKnobTip (prefix + "_decay", "Mod envelope decay time (ms)");
+        setKnobTip (prefix + "_sustain", "Mod envelope sustain level");
+        setKnobTip (prefix + "_release", "Mod envelope release time (ms)");
+        setToggleTip (prefix + "_dest_cutoff", "Route mod envelope to filter cutoff");
+        setToggleTip (prefix + "_dest_resonance", "Route mod envelope to filter resonance");
+        setToggleTip (prefix + "_dest_pitch", "Route mod envelope to oscillator pitch");
+        setToggleTip (prefix + "_dest_volume", "Route mod envelope to output volume");
+    };
+
+    addModEnvTips ("modenv1");
+    addModEnvTips ("modenv2");
 
     setComboTip ("chorus_mode", "Chorus mode: Off, I, II, or I+II (Juno-style)");
     setKnobTip ("chorus_rate", "Chorus LFO speed");
@@ -374,7 +409,7 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
 
     // Configure resize AFTER all components exist so resized() can lay them out
     setResizable (true, true);
-    setResizeLimits (1000, 780, 1600, 1248);
+    setResizeLimits (1000, 920, 1600, 1472);
     getConstrainer()->setFixedAspectRatio (static_cast<double> (kWindowWidth)
                                          / static_cast<double> (kWindowHeight));
     setSize (kWindowWidth, kWindowHeight);
@@ -484,7 +519,7 @@ void TillySynthEditor::paint (juce::Graphics& g)
         .withTrimmedTop (kHeaderHeight + kDriftBarHeight)
         .withTrimmedBottom (kKeyboardHeight)
         .reduced (kSectionPadding);
-    int sectionHeight = (contentArea.getHeight() - kSectionPadding * 2) / 3;
+    int sectionHeight = (contentArea.getHeight() - kSectionPadding * 3) / 4;
 
     // Row 1: Oscillators + Noise
     auto row1 = contentArea.removeFromTop (sectionHeight);
@@ -508,6 +543,15 @@ void TillySynthEditor::paint (juce::Graphics& g)
     drawSectionBackground (g, lfo1Area, "LFO 1");
     drawSectionBackground (g, lfo2Area, "LFO 2");
 
+    auto& apvts = processorRef.getAPVTS();
+    auto filterEnvPreviewArea = filterArea.withTrimmedTop (filterArea.getHeight() - 26).reduced (10, 2);
+    drawEnvelopePreview (g, filterEnvPreviewArea,
+                         apvts.getRawParameterValue ("filter_attack")->load(),
+                         apvts.getRawParameterValue ("filter_decay")->load(),
+                         apvts.getRawParameterValue ("filter_sustain")->load() / 100.0f,
+                         apvts.getRawParameterValue ("filter_release")->load(),
+                         Colours::warmAmber);
+
     // LFO waveform visualisation (bottom portion of each LFO section)
     auto lfo1VisArea = lfo1Area.withTrimmedTop (lfo1Area.getHeight() - 40).reduced (8, 4);
     auto lfo2VisArea = lfo2Area.withTrimmedTop (lfo2Area.getHeight() - 40).reduced (8, 4);
@@ -524,14 +568,23 @@ void TillySynthEditor::paint (juce::Graphics& g)
 
     contentArea.removeFromTop (kSectionPadding);
 
-    // Row 3: Chorus + Reverb + Master + VU
-    auto row3 = contentArea.reduced (kSectionPadding / 2);
+    // Row 3: Mod envelopes
+    auto row3 = contentArea.removeFromTop (sectionHeight);
+    auto modEnv1Area = row3.removeFromLeft (row3.getWidth() / 2).reduced (kSectionPadding / 2);
+    auto modEnv2Area = row3.reduced (kSectionPadding / 2);
+    drawSectionBackground (g, modEnv1Area, "MOD ENV 1");
+    drawSectionBackground (g, modEnv2Area, "MOD ENV 2");
+
+    contentArea.removeFromTop (kSectionPadding);
+
+    // Row 4: Chorus + Reverb + Master + VU
+    auto row4 = contentArea.reduced (kSectionPadding / 2);
     int vuWidth = 70;
-    auto vuArea = row3.removeFromRight (vuWidth).reduced (kSectionPadding / 2);
-    int chorusW = row3.getWidth() * 18 / 100;
-    auto chorusArea = row3.removeFromLeft (chorusW).reduced (kSectionPadding / 2);
-    auto reverbArea = row3.removeFromLeft (row3.getWidth() * 46 / 100).reduced (kSectionPadding / 2);
-    auto masterArea = row3.reduced (kSectionPadding / 2);
+    auto vuArea = row4.removeFromRight (vuWidth).reduced (kSectionPadding / 2);
+    int chorusW = row4.getWidth() * 18 / 100;
+    auto chorusArea = row4.removeFromLeft (chorusW).reduced (kSectionPadding / 2);
+    auto reverbArea = row4.removeFromLeft (row4.getWidth() * 46 / 100).reduced (kSectionPadding / 2);
+    auto masterArea = row4.reduced (kSectionPadding / 2);
     drawSectionBackground (g, chorusArea, "CHORUS");
     drawSectionBackground (g, reverbArea, "REVERB");
     drawSectionBackground (g, masterArea, "MASTER");
@@ -583,7 +636,7 @@ void TillySynthEditor::resized()
         .withTrimmedTop (kHeaderHeight + kDriftBarHeight)
         .withTrimmedBottom (kKeyboardHeight)
         .reduced (kSectionPadding);
-    int sectionHeight = (contentArea.getHeight() - kSectionPadding * 2) / 3;
+    int sectionHeight = (contentArea.getHeight() - kSectionPadding * 3) / 4;
 
     // Row 1: Oscillators + Noise
     auto row1 = contentArea.removeFromTop (sectionHeight);
@@ -603,20 +656,27 @@ void TillySynthEditor::resized()
 
     contentArea.removeFromTop (kSectionPadding);
 
-    // Row 3: Chorus + Reverb + Master + VU
-    auto row3 = contentArea.reduced (kSectionPadding);
-    row3.removeFromRight (70); // reserve VU space (paint-only)
-    int chorusW = row3.getWidth() * 18 / 100;
-    layoutChorusSection (row3.removeFromLeft (chorusW).reduced (kSectionPadding));
-    layoutReverbSection (row3.removeFromLeft (row3.getWidth() * 46 / 100).reduced (kSectionPadding));
-    layoutMasterSection (row3.reduced (kSectionPadding));
+    // Row 3: Mod envelopes
+    auto row3 = contentArea.removeFromTop (sectionHeight);
+    layoutModEnvSection (row3.removeFromLeft (row3.getWidth() / 2).reduced (kSectionPadding), "modenv1");
+    layoutModEnvSection (row3.reduced (kSectionPadding), "modenv2");
+
+    contentArea.removeFromTop (kSectionPadding);
+
+    // Row 4: Chorus + Reverb + Master + VU
+    auto row4 = contentArea.reduced (kSectionPadding);
+    row4.removeFromRight (70); // reserve VU space (paint-only)
+    int chorusW = row4.getWidth() * 18 / 100;
+    layoutChorusSection (row4.removeFromLeft (chorusW).reduced (kSectionPadding));
+    layoutReverbSection (row4.removeFromLeft (row4.getWidth() * 46 / 100).reduced (kSectionPadding));
+    layoutMasterSection (row4.reduced (kSectionPadding));
 }
 
 void TillySynthEditor::layoutOscillatorSection (juce::Rectangle<int> area, const juce::String& prefix)
 {
     area.removeFromTop (20);  // section title space
 
-    int knobW = area.getWidth() / 5;
+    int knobW = area.getWidth() / 6;
     int knobH = kKnobSize + kLabelHeight;
 
     // Row 1: Waveform, Octave, Semi, Fine, Level
@@ -733,6 +793,7 @@ void TillySynthEditor::layoutNoiseSection (juce::Rectangle<int> area)
 void TillySynthEditor::layoutFilterSection (juce::Rectangle<int> area)
 {
     area.removeFromTop (20);
+    area.removeFromBottom (28);
 
     int knobW = area.getWidth() / 5;
     int knobH = kKnobSize + kLabelHeight;
@@ -761,6 +822,7 @@ void TillySynthEditor::layoutFilterSection (juce::Rectangle<int> area)
 
     placeCombo ("filter_mode", row1, knobW);
     placeCombo ("filter_slope", row1, knobW);
+    placeCombo ("filter_target", row1, knobW);
     placeKnob ("filter_cutoff", row1, knobW);
     placeKnob ("filter_resonance", row1, knobW);
     placeKnob ("filter_env_amount", row1, knobW);
@@ -826,6 +888,48 @@ void TillySynthEditor::layoutLFOSection (juce::Rectangle<int> area, const juce::
     placeToggle (prefix + "_dest_pitch", row2);
     placeToggle (prefix + "_dest_volume", row2);
     placeToggle (prefix + "_dest_pw", row2);
+}
+
+void TillySynthEditor::layoutModEnvSection (juce::Rectangle<int> area, const juce::String& prefix)
+{
+    area.removeFromTop (20);
+
+    int knobW = area.getWidth() / 5;
+    int knobH = kKnobSize + kLabelHeight;
+
+    auto row1 = area.removeFromTop (knobH + 4);
+
+    auto placeKnob = [&] (const juce::String& id, juce::Rectangle<int>& row)
+    {
+        auto col = row.removeFromLeft (knobW);
+        if (knobs.count (id))
+        {
+            knobs[id].slider->setBounds (col.removeFromTop (kKnobSize).reduced (2));
+            knobs[id].label->setBounds (col.removeFromTop (kLabelHeight));
+        }
+    };
+
+    placeKnob (prefix + "_amount", row1);
+    placeKnob (prefix + "_attack", row1);
+    placeKnob (prefix + "_decay", row1);
+    placeKnob (prefix + "_sustain", row1);
+    placeKnob (prefix + "_release", row1);
+
+    area.removeFromTop (8);
+    auto row2 = area.removeFromTop (28);
+    int btnW = area.getWidth() / 4;
+
+    auto placeToggle = [&] (const juce::String& id, juce::Rectangle<int>& row)
+    {
+        auto col = row.removeFromLeft (btnW);
+        if (toggles.count (id))
+            toggles[id].button->setBounds (col.reduced (2));
+    };
+
+    placeToggle (prefix + "_dest_cutoff", row2);
+    placeToggle (prefix + "_dest_resonance", row2);
+    placeToggle (prefix + "_dest_pitch", row2);
+    placeToggle (prefix + "_dest_volume", row2);
 }
 
 void TillySynthEditor::layoutChorusSection (juce::Rectangle<int> area)
@@ -1040,8 +1144,9 @@ void TillySynthEditor::drawDriftScope (juce::Graphics& g, juce::Rectangle<int> b
     float labelEnd = 168.0f; // label + slider
     float sensorWidth = 80.0f;
     float pad = 6.0f;
+    float rightPad = 2.0f;
     float scopeX = static_cast<float> (bounds.getX()) + labelEnd + pad;
-    float scopeW = static_cast<float> (bounds.getWidth()) - labelEnd - sensorWidth - pad * 2.0f;
+    float scopeW = static_cast<float> (bounds.getWidth()) - labelEnd - sensorWidth - pad - rightPad;
     float scopeY = static_cast<float> (bounds.getY()) + 3.0f;
     float scopeH = static_cast<float> (bounds.getHeight()) - 6.0f;
     float centreY = scopeY + scopeH * 0.5f;
@@ -1225,6 +1330,58 @@ void TillySynthEditor::drawLFOWaveform (juce::Graphics& g, juce::Rectangle<int> 
     g.setFont (juce::Font (juce::FontOptions (8.0f)));
     g.drawText (juce::String (rate, 1) + " Hz",
                 bounds.withTrimmedLeft (4), juce::Justification::bottomLeft);
+}
+
+void TillySynthEditor::drawEnvelopePreview (juce::Graphics& g, juce::Rectangle<int> bounds,
+                                             float attackMs, float decayMs, float sustain01,
+                                             float releaseMs, juce::Colour colour)
+{
+    if (bounds.isEmpty())
+        return;
+
+    auto area = bounds.toFloat();
+
+    g.setColour (colour.withAlpha (0.10f));
+    g.fillRoundedRectangle (area, 4.0f);
+
+    g.setColour (colour.withAlpha (0.22f));
+    g.drawRoundedRectangle (area, 4.0f, 1.0f);
+
+    auto normaliseStage = [] (float valueMs) -> float
+    {
+        return std::log1p (juce::jmax (0.0f, valueMs)) / std::log1p (10000.0f);
+    };
+
+    float attackPortion = 0.12f + normaliseStage (attackMs) * 0.20f;
+    float decayPortion = 0.12f + normaliseStage (decayMs) * 0.18f;
+    float releasePortion = 0.14f + normaliseStage (releaseMs) * 0.20f;
+    float sustainPortion = juce::jmax (0.12f, 1.0f - (attackPortion + decayPortion + releasePortion));
+
+    float total = attackPortion + decayPortion + sustainPortion + releasePortion;
+    attackPortion /= total;
+    decayPortion /= total;
+    sustainPortion /= total;
+    releasePortion /= total;
+
+    float left = area.getX() + 6.0f;
+    float right = area.getRight() - 6.0f;
+    float width = right - left;
+    float bottom = area.getBottom() - 4.0f;
+    float top = area.getY() + 4.0f;
+    float sustainY = juce::jmap (juce::jlimit (0.0f, 1.0f, sustain01), bottom, top);
+
+    juce::Path env;
+    env.startNewSubPath (left, bottom);
+    env.lineTo (left + width * attackPortion, top);
+    env.lineTo (left + width * (attackPortion + decayPortion), sustainY);
+    env.lineTo (left + width * (attackPortion + decayPortion + sustainPortion), sustainY);
+    env.lineTo (right, bottom);
+
+    g.setColour (colour.withAlpha (0.85f));
+    g.strokePath (env, juce::PathStrokeType (1.6f));
+
+    g.setColour (colour.withAlpha (0.30f));
+    g.drawLine (left, bottom, right, bottom, 1.0f);
 }
 
 // --- WheelComponent implementation ---

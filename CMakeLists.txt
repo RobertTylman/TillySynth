@@ -45,6 +45,21 @@ set(TILLYSYNTH_SHARED_SOURCES
     Source/UI/TillySynthLookAndFeel.cpp
 )
 
+set(TILLYSYNTH_JUCE_MODULES
+    juce::juce_audio_utils
+    juce::juce_audio_processors
+    juce::juce_dsp
+    juce::juce_graphics
+    juce::juce_gui_basics
+    juce::juce_gui_extra
+    juce::juce_core
+    juce::juce_events
+    juce::juce_audio_basics
+    juce::juce_audio_devices
+    juce::juce_audio_formats
+    juce::juce_data_structures
+)
+
 add_library(TillySynthCore STATIC
     ${TILLYSYNTH_SHARED_SOURCES}
 )
@@ -59,24 +74,17 @@ target_compile_definitions(TillySynthCore PUBLIC
 )
 
 target_link_libraries(TillySynthCore PRIVATE
-    juce::juce_audio_utils
-    juce::juce_audio_processors
-    juce::juce_dsp
-    juce::juce_graphics
-    juce::juce_gui_basics
-    juce::juce_gui_extra
-    juce::juce_core
-    juce::juce_events
-    juce::juce_audio_basics
-    juce::juce_audio_devices
-    juce::juce_audio_formats
-    juce::juce_data_structures
+    ${TILLYSYNTH_JUCE_MODULES}
     PUBLIC
     juce::juce_recommended_config_flags
     juce::juce_recommended_warning_flags
 )
 
-target_link_libraries(TillySynth PRIVATE TillySynthCore)
+target_link_libraries(TillySynth PRIVATE
+    TillySynthCore
+    juce::juce_audio_utils
+    juce::juce_audio_devices
+)
 
 juce_add_gui_app(TillyPresetReview
     PRODUCT_NAME "TillySynth Preset Review"
