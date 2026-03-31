@@ -1635,7 +1635,7 @@ void TillySynthEditor::drawDriftScope (juce::Graphics& g, juce::Rectangle<int> b
                 static_cast<float> (bounds.getRight()), static_cast<float> (bounds.getY()), 0.5f);
 
     float labelEnd = 186.0f;
-    float sensorWidth = 90.0f;
+    float sensorWidth = 60.0f;
     float pad = 8.0f;
     float scopeX = static_cast<float> (bounds.getX()) + labelEnd + pad;
     float scopeW = static_cast<float> (bounds.getWidth()) - labelEnd - sensorWidth - pad * 2.0f;
