@@ -4,6 +4,8 @@
 namespace tillysynth
 {
 
+static constexpr float kPulseWidthModRange = 0.45f;
+
 void SynthVoice::prepare (double sr, int samplesPerBlock)
 {
     sampleRate = sr;
@@ -179,13 +181,10 @@ float SynthVoice::processSample (float lfoFilterMod, float lfoPitchMod,
 
     osc1.setFrequency (freq1);
     osc2.setFrequency (freq2);
-
-    // Apply LFO pulse width modulation
-    if (lfoPWMod != 0.0f)
-    {
-        // PWM shifts from current pulse width setting
-        // handled externally by VoiceManager re-setting PW each block
-    }
+    osc1.setPulseWidth (juce::jlimit (0.01f, 0.99f,
+                                      osc1PulseWidth + lfoPWMod * kPulseWidthModRange));
+    osc2.setPulseWidth (juce::jlimit (0.01f, 0.99f,
+                                      osc2PulseWidth + lfoPWMod * kPulseWidthModRange));
 
     float osc1Sample = osc1.processSample();
     float osc2Sample = osc2.processSample();
@@ -272,6 +271,7 @@ void SynthVoice::setOsc1Params (Waveform wf, int octave, int semitone, float fin
     osc1Octave = octave;
     osc1Semitone = semitone;
     osc1FineTune = fineTuneCents;
+    osc1PulseWidth = pw01;
     osc1.setWaveform (wf);
     osc1.setLevel (level01);
     osc1.setPulseWidth (pw01);
@@ -287,6 +287,7 @@ void SynthVoice::setOsc2Params (Waveform wf, int octave, int semitone, float fin
     osc2Octave = octave;
     osc2Semitone = semitone;
     osc2FineTune = fineTuneCents;
+    osc2PulseWidth = pw01;
     osc2.setWaveform (wf);
     osc2.setLevel (level01);
     osc2.setPulseWidth (pw01);

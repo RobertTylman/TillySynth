@@ -7,13 +7,28 @@ namespace tillysynth
 
 TillySynthProcessor::TillySynthProcessor()
     : juce::AudioProcessor (BusesProperties()
-          .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
-      apvts (*this, nullptr, "TillySynthState", createParameterLayout()),
+          .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
+          .withInput  ("Sidechain", juce::AudioChannelSet::stereo(), false)),
+      apvts (*this, &undoManager, "TillySynthState", createParameterLayout()),
       presetManager (apvts)
 {
     // Start drift engine
     float driftAmount = apvts.getRawParameterValue (ParamIDs::masterAnalogDrift)->load() / 100.0f;
     voiceManager.getDriftEngine().start (driftAmount);
+}
+
+bool TillySynthProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+{
+    auto mainOut = layouts.getMainOutputChannelSet();
+    if (mainOut != juce::AudioChannelSet::stereo())
+        return false;
+
+    auto scIn = layouts.getChannelSet (true, 0);
+    if (! scIn.isDisabled() && scIn != juce::AudioChannelSet::mono()
+        && scIn != juce::AudioChannelSet::stereo())
+        return false;
+
+    return true;
 }
 
 void TillySynthProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
@@ -87,6 +102,34 @@ void TillySynthProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     juce::dsp::AudioBlock<float> reverbBlock (buffer);
     juce::dsp::ProcessContextReplacing<float> reverbCtx (reverbBlock);
     reverb.process (reverbCtx);
+
+    // Sidechain ducking
+    {
+        float scAmount = apvts.getRawParameterValue (ParamIDs::sidechainAmount)->load() / 100.0f;
+        auto scBus = getBus (true, 0);
+        if (scAmount > 0.0f && scBus != nullptr && scBus->isEnabled())
+        {
+            auto scBuffer = getBusBuffer (buffer, true, 0);
+            int scChannels = scBuffer.getNumChannels();
+            if (scChannels > 0)
+            {
+                for (int i = 0; i < numSamples; ++i)
+                {
+                    float scSample = 0.0f;
+                    for (int ch = 0; ch < scChannels; ++ch)
+                        scSample += std::abs (scBuffer.getSample (ch, i));
+                    scSample /= static_cast<float> (scChannels);
+
+                    float duckGain = 1.0f - (scSample * scAmount);
+                    duckGain = juce::jmax (0.0f, duckGain);
+
+                    leftChannel[i] *= duckGain;
+                    if (rightChannel != nullptr)
+                        rightChannel[i] *= duckGain;
+                }
+            }
+        }
+    }
 
     // Fill scope buffer (downsample to fit)
     {

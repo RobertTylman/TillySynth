@@ -8,7 +8,7 @@ namespace tillysynth
 static constexpr int kWindowWidth  = 1200;
 static constexpr int kWindowHeight = 800;
 static constexpr int kHeaderHeight = 44;
-static constexpr int kScopeBarHeight = 80;
+static constexpr int kScopeBarHeight = 40;
 static constexpr int kKeyboardHeight = 64;
 static constexpr int kWheelAreaWidth = 52;
 static constexpr int kSectionPadding = 8;
@@ -59,7 +59,7 @@ void WaveformSelector::paint (juce::Graphics& g)
 
         if (selected)
         {
-            g.setColour (Colours::darkAmber.withAlpha (0.4f));
+            g.setColour (Colours::darkAmber().withAlpha (0.4f));
             g.fillRoundedRectangle (cell.reduced (1.0f), 3.0f);
         }
 
@@ -117,7 +117,7 @@ void WaveformSelector::drawWaveformIcon (juce::Graphics& g, juce::Rectangle<floa
             break;
     }
 
-    g.setColour (isSelected ? Colours::warmAmber : Colours::dimAmber);
+    g.setColour (isSelected ? Colours::warmAmber() : Colours::dimAmber());
     g.strokePath (path, juce::PathStrokeType (isSelected ? 2.0f : 1.5f));
 }
 
@@ -134,12 +134,17 @@ void WaveformSelector::mouseDown (const juce::MouseEvent& e)
 //  ADSRDisplay
 // ============================================================
 
+juce::Colour ADSRDisplay::getEnvColour() const
+{
+    return useBrightAccent ? Colours::brightAmber() : Colours::warmAmber();
+}
+
 ADSRDisplay::ADSRDisplay (juce::AudioProcessorValueTreeState& apvts,
                           const juce::String& attackId, const juce::String& decayId,
                           const juce::String& sustainId, const juce::String& releaseId,
-                          juce::Colour colour)
+                          bool bright)
     : apvtsRef (apvts), aId (attackId), dId (decayId), sId (sustainId), rId (releaseId),
-      envColour (colour)
+      useBrightAccent (bright)
 {
     startTimerHz (15);
 }
@@ -243,7 +248,7 @@ void ADSRDisplay::paint (juce::Graphics& g)
     g.drawRoundedRectangle (fullBounds, 4.0f, 0.5f);
 
     // Baseline
-    g.setColour (envColour.withAlpha (0.15f));
+    g.setColour (getEnvColour().withAlpha (0.15f));
     g.drawLine (area.getX(), area.getBottom(), area.getRight(), area.getBottom(), 0.5f);
 
     auto attackPt = getAttackPoint();
@@ -264,15 +269,15 @@ void ADSRDisplay::paint (juce::Graphics& g)
     fillPath.lineTo (area.getRight(), area.getBottom());
     fillPath.lineTo (area.getX(), area.getBottom());
     fillPath.closeSubPath();
-    g.setColour (envColour.withAlpha (0.1f));
+    g.setColour (getEnvColour().withAlpha (0.1f));
     g.fillPath (fillPath);
 
     // Stroke
-    g.setColour (envColour.withAlpha (0.85f));
+    g.setColour (getEnvColour().withAlpha (0.85f));
     g.strokePath (env, juce::PathStrokeType (1.5f));
 
     // Stage labels
-    g.setColour (envColour.withAlpha (0.3f));
+    g.setColour (getEnvColour().withAlpha (0.3f));
     g.setFont (juce::FontOptions (8.0f));
     float labelY = area.getBottom() - 10.0f;
     g.drawText ("A", juce::Rectangle<float> (area.getX(), labelY, attackPt.x - area.getX(), 10.0f),
@@ -288,7 +293,7 @@ void ADSRDisplay::paint (juce::Graphics& g)
     auto drawHandle = [&] (juce::Point<float> pt, bool isHovered)
     {
         float r = isHovered ? kHandleRadius + 1.0f : kHandleRadius;
-        g.setColour (isHovered ? Colours::brightAmber : envColour);
+        g.setColour (isHovered ? Colours::brightAmber() : getEnvColour());
         g.fillEllipse (pt.x - r, pt.y - r, r * 2.0f, r * 2.0f);
         g.setColour (Colours::mutedCream.withAlpha (0.6f));
         g.drawEllipse (pt.x - r, pt.y - r, r * 2.0f, r * 2.0f, 1.0f);
@@ -376,7 +381,7 @@ void ADSRDisplay::mouseDrag (const juce::MouseEvent& e)
     }
     else if (currentDrag == DragTarget::Release)
     {
-        float ms = denormaliseTime (normX * 2.0f);
+        float ms = denormaliseTime (juce::jlimit (0.01f, 1.0f, 1.0f - normX) * 2.0f);
         auto* param = apvtsRef.getParameter (rId);
         param->setValueNotifyingHost (param->convertTo0to1 (ms));
     }
@@ -412,9 +417,10 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
     keyboard.setColour (juce::MidiKeyboardComponent::whiteNoteColourId, Colours::mutedCream);
     keyboard.setColour (juce::MidiKeyboardComponent::blackNoteColourId, Colours::panelBackground);
     keyboard.setColour (juce::MidiKeyboardComponent::keySeparatorLineColourId, Colours::knobOutline);
-    keyboard.setColour (juce::MidiKeyboardComponent::keyDownOverlayColourId, Colours::warmAmber.withAlpha (0.6f));
-    keyboard.setColour (juce::MidiKeyboardComponent::mouseOverKeyOverlayColourId, Colours::warmAmber.withAlpha (0.2f));
+    keyboard.setColour (juce::MidiKeyboardComponent::keyDownOverlayColourId, Colours::warmAmber().withAlpha (0.6f));
+    keyboard.setColour (juce::MidiKeyboardComponent::mouseOverKeyOverlayColourId, Colours::warmAmber().withAlpha (0.2f));
     keyboard.setOctaveForMiddleC (4);
+    keyboard.setAvailableRange (0, 127);
     addAndMakeVisible (keyboard);
 
     // Preset selector with category submenus
@@ -497,6 +503,17 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
     authorLink.setTooltip ("Visit Robbie Tylman's portfolio");
     addAndMakeVisible (authorLink);
 
+    // Clickable title for colour theme cycling
+    titleButton.setButtonText ("TillySynth");
+    titleButton.setTooltip ("Click to change colour theme");
+    titleButton.setMouseCursor (juce::MouseCursor::PointingHandCursor);
+    titleButton.setColour (juce::TextButton::buttonColourId, juce::Colour (0x00000000));
+    titleButton.setColour (juce::TextButton::buttonOnColourId, juce::Colour (0x00000000));
+    titleButton.setColour (juce::TextButton::textColourOffId, Colours::warmAmber());
+    titleButton.setColour (juce::TextButton::textColourOnId, Colours::warmAmber());
+    titleButton.onClick = [this] { cycleColourTheme(); };
+    addAndMakeVisible (titleButton);
+
     // Window size button
     sizeButton.setButtonText ("100%");
     sizeButton.setTooltip ("Cycle window size: 100% / 125% / 150%");
@@ -507,6 +524,17 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
         setSize (kWindowWidth * next / 100, kWindowHeight * next / 100);
     };
     addAndMakeVisible (sizeButton);
+
+    // Undo/redo buttons
+    undoButton.setButtonText ("Undo");
+    undoButton.setTooltip ("Undo last parameter change");
+    undoButton.onClick = [this] { processorRef.getUndoManager().undo(); };
+    addAndMakeVisible (undoButton);
+
+    redoButton.setButtonText ("Redo");
+    redoButton.setTooltip ("Redo last undone parameter change");
+    redoButton.onClick = [this] { processorRef.getUndoManager().redo(); };
+    addAndMakeVisible (redoButton);
 
     // Transpose buttons
     transposeDown.setButtonText ("-");
@@ -557,7 +585,7 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
     // Drift scope label
     driftLabel.setText ("ANALOGUE DRIFT", juce::dontSendNotification);
     driftLabel.setFont (juce::Font (juce::FontOptions (10.0f, juce::Font::bold)));
-    driftLabel.setColour (juce::Label::textColourId, Colours::warmAmber.withAlpha (0.7f));
+    driftLabel.setColour (juce::Label::textColourId, Colours::warmAmber().withAlpha (0.7f));
     driftLabel.setInterceptsMouseClicks (true, false);
     addAndMakeVisible (driftLabel);
 
@@ -677,36 +705,33 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
     knobs["master_analog_drift"].label->setVisible (false);
     knobs["master_unison"]         = createKnob ("master_unison", "Unison");
     knobs["master_unison_detune"]  = createKnob ("master_unison_detune", "UniDet");
+    knobs["sidechain_amount"]      = createKnob ("sidechain_amount", "SC Amt");
 
     // --- ADSR Displays ---
     osc1AdsrDisplay = std::make_unique<ADSRDisplay> (
-        processorRef.getAPVTS(), "osc1_attack", "osc1_decay", "osc1_sustain", "osc1_release",
-        Colours::warmAmber);
+        processorRef.getAPVTS(), "osc1_attack", "osc1_decay", "osc1_sustain", "osc1_release");
     addAndMakeVisible (*osc1AdsrDisplay);
 
     osc2AdsrDisplay = std::make_unique<ADSRDisplay> (
-        processorRef.getAPVTS(), "osc2_attack", "osc2_decay", "osc2_sustain", "osc2_release",
-        Colours::warmAmber);
+        processorRef.getAPVTS(), "osc2_attack", "osc2_decay", "osc2_sustain", "osc2_release");
     addAndMakeVisible (*osc2AdsrDisplay);
 
     noiseAdsrDisplay = std::make_unique<ADSRDisplay> (
-        processorRef.getAPVTS(), "noise_attack", "noise_decay", "noise_sustain", "noise_release",
-        Colours::warmAmber);
+        processorRef.getAPVTS(), "noise_attack", "noise_decay", "noise_sustain", "noise_release");
     addAndMakeVisible (*noiseAdsrDisplay);
 
     filterAdsrDisplay = std::make_unique<ADSRDisplay> (
-        processorRef.getAPVTS(), "filter_attack", "filter_decay", "filter_sustain", "filter_release",
-        Colours::warmAmber);
+        processorRef.getAPVTS(), "filter_attack", "filter_decay", "filter_sustain", "filter_release");
     addAndMakeVisible (*filterAdsrDisplay);
 
     modenv1AdsrDisplay = std::make_unique<ADSRDisplay> (
         processorRef.getAPVTS(), "modenv1_attack", "modenv1_decay", "modenv1_sustain", "modenv1_release",
-        Colours::brightAmber);
+        true);
     addAndMakeVisible (*modenv1AdsrDisplay);
 
     modenv2AdsrDisplay = std::make_unique<ADSRDisplay> (
         processorRef.getAPVTS(), "modenv2_attack", "modenv2_decay", "modenv2_sustain", "modenv2_release",
-        Colours::brightAmber);
+        true);
     addAndMakeVisible (*modenv2AdsrDisplay);
 
     // --- Tooltips ---
@@ -806,6 +831,7 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
     setKnobTip ("master_analog_drift", "Random analogue-style pitch and filter drift");
     setKnobTip ("master_unison", "Global unison voices applied to both oscillators");
     setKnobTip ("master_unison_detune", "Pitch spread for master unison voices");
+    setKnobTip ("sidechain_amount", "Sidechain ducking amount — route external audio to the sidechain input");
 
     // Pitch and mod wheels
     pitchWheel.onValueChange = [this] (float v) { processorRef.setPitchBendFromUI (v); };
@@ -982,7 +1008,15 @@ void TillySynthEditor::paint (juce::Graphics& g)
     drawSectionBackground (g, modEnv2Area, "MOD ENV 2");
     drawSectionBackground (g, effectsArea, "EFFECTS");
     drawSectionBackground (g, masterArea, "MASTER");
-    drawSectionBackground (g, vuArea, "VU");
+    drawSectionBackground (g, vuArea, "OUT");
+
+    auto effectsContent = effectsArea.withTrimmedTop (kSectionTitleHeight);
+    auto chorusLabelArea = effectsContent.removeFromTop (14).withTrimmedLeft (8);
+    drawSubSectionLabel (g, chorusLabelArea, "CHORUS");
+    effectsContent.removeFromTop (kSmallKnobSize + kLabelHeight + 6);
+    auto reverbLabelArea = effectsContent.removeFromTop (14).withTrimmedLeft (8);
+    drawSubSectionLabel (g, reverbLabelArea, "REVERB");
+
     drawVUMeter (g, vuArea.reduced (4, 28));
 }
 
@@ -994,6 +1028,9 @@ void TillySynthEditor::resized()
 {
     float scale = static_cast<float> (getWidth()) / static_cast<float> (kWindowWidth);
     lookAndFeel.setScale (scale);
+
+    // Title button in header
+    titleButton.setBounds (8, 4, 140, 36);
 
     // Header controls
     int headerCentreX = getWidth() / 2 - 30;
@@ -1014,6 +1051,8 @@ void TillySynthEditor::resized()
         int pct = getWidth() * 100 / kWindowWidth;
         sizeButton.setButtonText (juce::String (pct) + "%");
     }
+    undoButton.setBounds (getWidth() - 390, 12, 40, 20);
+    redoButton.setBounds (getWidth() - 348, 12, 40, 20);
     masterVolumeLabel.setBounds (getWidth() - 290, 12, 50, 20);
     masterVolumeSlider.setBounds (getWidth() - 240, 12, 100, 20);
     authorLink.setBounds (getWidth() - 130, 10, 80, 24);
@@ -1021,7 +1060,7 @@ void TillySynthEditor::resized()
 
     // Drift bar
     driftLabel.setBounds (6, kHeaderHeight + 2, 100, kScopeBarHeight - 4);
-    driftBarKnob.setBounds (102, kHeaderHeight + 28, 80, kScopeBarHeight - 56);
+    driftBarKnob.setBounds (102, kHeaderHeight + (kScopeBarHeight - 16) / 2, 80, 16);
 
     // Keyboard + wheels
     auto bottomArea = getLocalBounds().removeFromBottom (kKeyboardHeight + 4);
@@ -1030,6 +1069,26 @@ void TillySynthEditor::resized()
     int wheelW = (wheelStrip.getWidth() - 4) / 2;
     pitchWheel.setBounds (wheelStrip.removeFromLeft (wheelW).reduced (1));
     modWheel.setBounds (wheelStrip.removeFromLeft (wheelW).reduced (1));
+
+    auto isWhiteKey = [] (int midiNote)
+    {
+        switch (midiNote % 12)
+        {
+            case 0: case 2: case 4: case 5: case 7: case 9: case 11:
+                return true;
+            default:
+                return false;
+        }
+    };
+
+    int whiteKeyCount = 0;
+    for (int midiNote = 0; midiNote <= 127; ++midiNote)
+        if (isWhiteKey (midiNote))
+            ++whiteKeyCount;
+
+    if (whiteKeyCount > 0)
+        keyboard.setKeyWidth (static_cast<float> (bottomArea.getWidth()) / static_cast<float> (whiteKeyCount));
+
     keyboard.setBounds (bottomArea);
 
     // Content area
@@ -1435,12 +1494,15 @@ void TillySynthEditor::layoutMasterSection (juce::Rectangle<int> area)
     placeKnob ("master_unison", row2, colW);
     placeKnob ("master_unison_detune", row2, colW);
 
-    area.removeFromTop (4);
+    area.removeFromTop (2);
 
-    // Legato toggle
-    auto toggleRow = area.removeFromTop (kToggleHeight);
+    // Row 3: Sidechain + Legato toggle
+    auto row3 = area.removeFromTop (knobH);
+    placeKnob ("sidechain_amount", row3, colW);
+
+    auto toggleArea = row3.removeFromLeft (colW * 2);
     if (toggles.count ("master_mono_legato"))
-        toggles["master_mono_legato"].button->setBounds (toggleRow.reduced (4, 0));
+        toggles["master_mono_legato"].button->setBounds (toggleArea.reduced (4, (knobH - kToggleHeight) / 2));
 }
 
 // ============================================================
@@ -1534,13 +1596,32 @@ void TillySynthEditor::drawHeader (juce::Graphics& g, juce::Rectangle<int> bound
     g.setColour (Colours::panelBackground.darker (0.3f));
     g.fillRect (bounds);
 
-    g.setColour (Colours::warmAmber);
-    g.setFont (juce::Font (juce::FontOptions (26.0f, juce::Font::bold)));
-    g.drawText ("TillySynth", bounds.withTrimmedLeft (16), juce::Justification::centredLeft);
-
-    g.setColour (Colours::warmAmber.withAlpha (0.4f));
+    g.setColour (Colours::warmAmber().withAlpha (0.4f));
     g.drawLine (static_cast<float> (bounds.getX()), static_cast<float> (bounds.getBottom()),
                 static_cast<float> (bounds.getRight()), static_cast<float> (bounds.getBottom()), 1.5f);
+}
+
+void TillySynthEditor::cycleColourTheme()
+{
+    ThemeData::currentThemeIndex = (ThemeData::currentThemeIndex + 1)
+        % static_cast<int> (ThemeData::themes.size());
+
+    lookAndFeel.applyThemeColours();
+
+    // Update keyboard overlay colours for new theme
+    keyboard.setColour (juce::MidiKeyboardComponent::keyDownOverlayColourId,
+                        Colours::warmAmber().withAlpha (0.6f));
+    keyboard.setColour (juce::MidiKeyboardComponent::mouseOverKeyOverlayColourId,
+                        Colours::warmAmber().withAlpha (0.2f));
+
+    // Update drift label colour
+    driftLabel.setColour (juce::Label::textColourId, Colours::warmAmber().withAlpha (0.7f));
+
+    // Update title button colour
+    titleButton.setColour (juce::TextButton::textColourOffId, Colours::warmAmber());
+    titleButton.setColour (juce::TextButton::textColourOnId, Colours::warmAmber());
+
+    repaint();
 }
 
 void TillySynthEditor::drawDriftScope (juce::Graphics& g, juce::Rectangle<int> bounds)
@@ -1567,11 +1648,11 @@ void TillySynthEditor::drawDriftScope (juce::Graphics& g, juce::Rectangle<int> b
     g.fillRoundedRectangle (scopeX - 2.0f, scopeY - 2.0f, scopeW + 4.0f, scopeH + 4.0f, 4.0f);
 
     // Centre line
-    g.setColour (Colours::warmAmber.withAlpha (0.12f));
+    g.setColour (Colours::warmAmber().withAlpha (0.12f));
     g.drawLine (scopeX, centreY, scopeX + scopeW, centreY, 0.5f);
 
     // Grid lines
-    g.setColour (Colours::warmAmber.withAlpha (0.06f));
+    g.setColour (Colours::warmAmber().withAlpha (0.06f));
     for (int q = 1; q <= 3; ++q)
     {
         float qx = scopeX + scopeW * static_cast<float> (q) / 4.0f;
@@ -1605,11 +1686,11 @@ void TillySynthEditor::drawDriftScope (juce::Graphics& g, juce::Rectangle<int> b
     }
 
     // Glow pass
-    g.setColour (Colours::warmAmber.withAlpha (0.15f));
+    g.setColour (Colours::warmAmber().withAlpha (0.15f));
     g.strokePath (wavePath, juce::PathStrokeType (4.0f));
 
     // Sharp pass
-    g.setColour (Colours::warmAmber.withAlpha (0.8f));
+    g.setColour (Colours::warmAmber().withAlpha (0.8f));
     g.strokePath (wavePath, juce::PathStrokeType (1.8f));
 
     // Sensor readout
@@ -1621,7 +1702,7 @@ void TillySynthEditor::drawDriftScope (juce::Graphics& g, juce::Rectangle<int> b
     float readoutY = static_cast<float> (bounds.getY()) + 4.0f;
 
     g.setFont (juce::Font (juce::FontOptions (9.0f)));
-    g.setColour (Colours::warmAmber.withAlpha (0.5f));
+    g.setColour (Colours::warmAmber().withAlpha (0.5f));
     g.drawText ("CPU " + juce::String (static_cast<int> (cpu * 100.0f)) + "%",
                 juce::Rectangle<float> (readoutX, readoutY, sensorWidth, 14.0f),
                 juce::Justification::centredRight);
@@ -1645,7 +1726,7 @@ void TillySynthEditor::drawSectionBackground (juce::Graphics& g, juce::Rectangle
     g.fillRoundedRectangle (titleBar.toFloat().withHeight (static_cast<float> (kSectionTitleHeight)),
                             6.0f);
 
-    g.setColour (Colours::warmAmber.withAlpha (0.7f));
+    g.setColour (Colours::warmAmber().withAlpha (0.7f));
     g.setFont (juce::Font (juce::FontOptions (11.0f, juce::Font::bold)));
     g.drawText (title, titleBar.withTrimmedLeft (10),
                 juce::Justification::centredLeft);
@@ -1719,7 +1800,7 @@ void TillySynthEditor::drawLFOWaveform (juce::Graphics& g, juce::Rectangle<int> 
     float y0 = static_cast<float> (bounds.getY());
     float centreY = y0 + h * 0.5f;
 
-    g.setColour (Colours::warmAmber.withAlpha (0.08f));
+    g.setColour (Colours::warmAmber().withAlpha (0.08f));
     g.drawLine (x0, centreY, x0 + w, centreY, 0.5f);
 
     juce::Path path;
@@ -1751,7 +1832,7 @@ void TillySynthEditor::drawLFOWaveform (juce::Graphics& g, juce::Rectangle<int> 
             path.lineTo (px, py);
     }
 
-    g.setColour (Colours::warmAmber.withAlpha (0.7f));
+    g.setColour (Colours::warmAmber().withAlpha (0.7f));
     g.strokePath (path, juce::PathStrokeType (1.5f));
 
     g.setColour (Colours::labelText.withAlpha (0.4f));
@@ -1873,7 +1954,7 @@ void WheelComponent::paint (juce::Graphics& g)
         if (fillH > 0.5f)
         {
             float fillY = (value >= 0.0f) ? centreY - fillH : centreY;
-            g.setColour (Colours::warmAmber.withAlpha (0.25f));
+            g.setColour (Colours::warmAmber().withAlpha (0.25f));
             g.fillRoundedRectangle (tx + 2.0f, fillY, tw - 4.0f, fillH, 2.0f);
         }
         drawThumb (centreY - value * th * 0.5f);
@@ -1883,7 +1964,7 @@ void WheelComponent::paint (juce::Graphics& g)
         float fillH = value * th;
         if (fillH > 0.5f)
         {
-            g.setColour (Colours::warmAmber.withAlpha (0.25f));
+            g.setColour (Colours::warmAmber().withAlpha (0.25f));
             g.fillRoundedRectangle (tx + 2.0f, ty + th - fillH, tw - 4.0f, fillH, 2.0f);
         }
         drawThumb (ty + th - value * th);

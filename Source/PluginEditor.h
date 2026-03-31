@@ -59,7 +59,7 @@ public:
     ADSRDisplay (juce::AudioProcessorValueTreeState& apvts,
                  const juce::String& attackId, const juce::String& decayId,
                  const juce::String& sustainId, const juce::String& releaseId,
-                 juce::Colour colour);
+                 bool bright = false);
     ~ADSRDisplay() override;
 
     void paint (juce::Graphics& g) override;
@@ -84,9 +84,11 @@ private:
 
     void timerCallback() override;
 
+    juce::Colour getEnvColour() const;
+
     juce::AudioProcessorValueTreeState& apvtsRef;
     juce::String aId, dId, sId, rId;
-    juce::Colour envColour;
+    bool useBrightAccent = false;
 
     DragTarget currentDrag = DragTarget::None;
     DragTarget hoverTarget = DragTarget::None;
@@ -156,8 +158,16 @@ private:
     void layoutEffectsSection (juce::Rectangle<int> area);
     void layoutMasterSection (juce::Rectangle<int> area);
 
+    void cycleColourTheme();
+
     TillySynthProcessor& processorRef;
     TillySynthLookAndFeel lookAndFeel;
+
+    // Clickable title for theme cycling
+    juce::TextButton titleButton;
+
+    // Undo/redo buttons
+    juce::TextButton undoButton, redoButton;
 
     // Window size button
     juce::TextButton sizeButton;

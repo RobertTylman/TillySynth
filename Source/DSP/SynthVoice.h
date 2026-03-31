@@ -87,8 +87,10 @@ private:
     // Oscillator tuning offsets
     int osc1Octave = 0, osc1Semitone = 0;
     float osc1FineTune = 0.0f;
+    float osc1PulseWidth = 0.5f;
     int osc2Octave = 0, osc2Semitone = 0;
     float osc2FineTune = 0.0f;
+    float osc2PulseWidth = 0.5f;
 
     // Filter state
     float baseCutoff = 8000.0f;

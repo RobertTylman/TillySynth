@@ -16,6 +16,8 @@ public:
     TillySynthProcessor();
     ~TillySynthProcessor() override = default;
 
+    bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
+
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
     void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
@@ -40,6 +42,7 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
     juce::AudioProcessorValueTreeState& getAPVTS() { return apvts; }
+    juce::UndoManager& getUndoManager() { return undoManager; }
 
     juce::MidiKeyboardState& getKeyboardState() { return keyboardState; }
 
@@ -85,6 +88,7 @@ private:
     void updateParametersFromAPVTS();
     void handleMidiMessage (const juce::MidiMessage& msg);
 
+    juce::UndoManager undoManager;
     juce::AudioProcessorValueTreeState apvts;
     juce::MidiKeyboardState keyboardState;
 

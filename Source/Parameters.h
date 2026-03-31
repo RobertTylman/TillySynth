@@ -119,6 +119,7 @@ namespace ParamIDs
     inline constexpr const char* masterAnalogDrift  = "master_analog_drift";
     inline constexpr const char* masterUnison       = "master_unison";
     inline constexpr const char* masterUnisonDetune = "master_unison_detune";
+    inline constexpr const char* sidechainAmount    = "sidechain_amount";
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();

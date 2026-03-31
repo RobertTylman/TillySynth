@@ -261,6 +261,10 @@ static void addMasterParams (juce::AudioProcessorValueTreeState::ParameterLayout
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { "master_unison_detune", 1 }, "Master Unison Detune",
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 20.0f));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "sidechain_amount", 1 }, "Sidechain Amount",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f));
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
