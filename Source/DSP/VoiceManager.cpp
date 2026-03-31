@@ -171,6 +171,26 @@ void VoiceManager::renderNextSample (float& leftOut, float& rightOut)
     float totalVolumeMod = lfo1Out.volumeMod + lfo2Out.volumeMod;
     float totalPWMod     = lfo1Out.pwMod     + lfo2Out.pwMod;
 
+    // Build global source values for the mod matrix
+    ModSourceValues globalSources;
+    globalSources.lfo1       = lfo1.getRawSample();
+    globalSources.lfo2       = lfo2.getRawSample();
+    globalSources.modWheel   = modWheelValue;
+    globalSources.aftertouch = aftertouchValue;
+
+    // Apply matrix LFO rate modulation (computed from global sources only)
+    // This creates feedback-free rate mod: current LFO value modulates next rate
+    ModSourceValues lfoRateSources = globalSources;
+    lfoRateSources.modEnv1 = 0.0f;
+    lfoRateSources.modEnv2 = 0.0f;
+    lfoRateSources.velocity = 0.0f;
+    auto lfoRateMod = modMatrix.compute (lfoRateSources);
+
+    if (lfoRateMod.lfo1Rate != 0.0f)
+        lfo1.setRate (juce::jmax (0.01f, lfo1BaseRate + lfoRateMod.lfo1Rate * 10.0f));
+    if (lfoRateMod.lfo2Rate != 0.0f)
+        lfo2.setRate (juce::jmax (0.01f, lfo2BaseRate + lfoRateMod.lfo2Rate * 10.0f));
+
     float mono = 0.0f;
 
     for (int i = 0; i < maxPolyphony; ++i)
@@ -184,9 +204,17 @@ void VoiceManager::renderNextSample (float& leftOut, float& rightOut)
         // Add pitch bend to pitch drift
         float totalPitchDrift = driftPitch + currentPitchBend * 100.0f;
 
+        // Per-voice mod matrix: fill in voice-specific sources
+        ModSourceValues voiceSources = globalSources;
+        voiceSources.velocity = voices[static_cast<size_t> (i)].getVelocity();
+        voiceSources.modEnv1  = voices[static_cast<size_t> (i)].getModEnv1Value();
+        voiceSources.modEnv2  = voices[static_cast<size_t> (i)].getModEnv2Value();
+
+        auto matrixOut = modMatrix.compute (voiceSources);
+
         mono += voices[static_cast<size_t> (i)].processSample (
             totalFilterMod, totalPitchMod, totalVolumeMod, totalPWMod,
-            totalPitchDrift, driftCutoff);
+            totalPitchDrift, driftCutoff, matrixOut);
     }
 
     // Fixed scaling based on max polyphony to prevent volume jumps
@@ -256,6 +284,7 @@ void VoiceManager::updateFilterParams (FilterMode mode, bool is24dB, float cutof
 void VoiceManager::updateLFO1 (Waveform wf, float rate, float depth,
                                 bool destCutoff, bool destPitch, bool destVolume, bool destPW)
 {
+    lfo1BaseRate = rate;
     lfo1.setWaveform (wf);
     lfo1.setRate (rate);
     lfo1.setDepth (depth);
@@ -265,6 +294,7 @@ void VoiceManager::updateLFO1 (Waveform wf, float rate, float depth,
 void VoiceManager::updateLFO2 (Waveform wf, float rate, float depth,
                                 bool destCutoff, bool destPitch, bool destVolume, bool destPW)
 {
+    lfo2BaseRate = rate;
     lfo2.setWaveform (wf);
     lfo2.setRate (rate);
     lfo2.setDepth (depth);
@@ -314,6 +344,16 @@ void VoiceManager::setPitchBendRange (int semitones)
 void VoiceManager::setModWheelValue (float value01)
 {
     modWheelValue = juce::jlimit (0.0f, 1.0f, value01);
+}
+
+void VoiceManager::setAftertouchValue (float value01)
+{
+    aftertouchValue = juce::jlimit (0.0f, 1.0f, value01);
+}
+
+void VoiceManager::updateModMatrix (int slotIndex, ModSource source, ModDest dest, float amount)
+{
+    modMatrix.setSlot (slotIndex, source, dest, amount);
 }
 
 int VoiceManager::findFreeVoice() const

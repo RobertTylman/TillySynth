@@ -120,6 +120,20 @@ namespace ParamIDs
     inline constexpr const char* masterUnison       = "master_unison";
     inline constexpr const char* masterUnisonDetune = "master_unison_detune";
     inline constexpr const char* sidechainAmount    = "sidechain_amount";
+
+    // Modulation Matrix (8 slots)
+    inline constexpr const char* modMatrixSource[]  = {
+        "modmatrix_1_source", "modmatrix_2_source", "modmatrix_3_source", "modmatrix_4_source",
+        "modmatrix_5_source", "modmatrix_6_source", "modmatrix_7_source", "modmatrix_8_source"
+    };
+    inline constexpr const char* modMatrixDest[]    = {
+        "modmatrix_1_dest", "modmatrix_2_dest", "modmatrix_3_dest", "modmatrix_4_dest",
+        "modmatrix_5_dest", "modmatrix_6_dest", "modmatrix_7_dest", "modmatrix_8_dest"
+    };
+    inline constexpr const char* modMatrixAmount[]  = {
+        "modmatrix_1_amount", "modmatrix_2_amount", "modmatrix_3_amount", "modmatrix_4_amount",
+        "modmatrix_5_amount", "modmatrix_6_amount", "modmatrix_7_amount", "modmatrix_8_amount"
+    };
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();

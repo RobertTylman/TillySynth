@@ -267,6 +267,39 @@ static void addMasterParams (juce::AudioProcessorValueTreeState::ParameterLayout
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f));
 }
 
+static juce::StringArray modMatrixSourceChoices {
+    "None", "LFO 1", "LFO 2", "Mod Env 1", "Mod Env 2",
+    "Velocity", "Aftertouch", "Mod Wheel"
+};
+
+static juce::StringArray modMatrixDestChoices {
+    "None", "Filter Cutoff", "Filter Resonance", "Pitch", "Volume",
+    "Pulse Width", "Osc 1 Level", "Osc 2 Level", "Noise Level",
+    "LFO 1 Rate", "LFO 2 Rate"
+};
+
+static void addModMatrixParams (juce::AudioProcessorValueTreeState::ParameterLayout& layout)
+{
+    for (int i = 0; i < 8; ++i)
+    {
+        auto slotNum = juce::String (i + 1);
+        auto prefix = "modmatrix_" + slotNum;
+
+        layout.add (std::make_unique<juce::AudioParameterChoice> (
+            juce::ParameterID { prefix + "_source", 1 },
+            "Mod " + slotNum + " Source", modMatrixSourceChoices, 0));
+
+        layout.add (std::make_unique<juce::AudioParameterChoice> (
+            juce::ParameterID { prefix + "_dest", 1 },
+            "Mod " + slotNum + " Dest", modMatrixDestChoices, 0));
+
+        layout.add (std::make_unique<juce::AudioParameterFloat> (
+            juce::ParameterID { prefix + "_amount", 1 },
+            "Mod " + slotNum + " Amount",
+            juce::NormalisableRange<float> (-100.0f, 100.0f, 0.1f), 0.0f));
+    }
+}
+
 juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
 {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
@@ -279,6 +312,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
     addLFOParams (layout, "lfo2", "LFO 2");
     addModEnvParams (layout, "modenv1", "Mod Env 1");
     addModEnvParams (layout, "modenv2", "Mod Env 2");
+    addModMatrixParams (layout);
     addChorusParams (layout);
     addReverbParams (layout);
     addMasterParams (layout);

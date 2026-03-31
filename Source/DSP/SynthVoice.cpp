@@ -104,7 +104,8 @@ void SynthVoice::noteOff()
 
 float SynthVoice::processSample (float lfoFilterMod, float lfoPitchMod,
                                   float lfoVolumeMod, float lfoPWMod,
-                                  float driftPitchCents, float driftCutoffHz)
+                                  float driftPitchCents, float driftCutoffHz,
+                                  const ModulationOutput& matrixMod)
 {
     if (! isActive() && ! stealing)
         return 0.0f;
@@ -154,8 +155,10 @@ float SynthVoice::processSample (float lfoFilterMod, float lfoPitchMod,
     else
         currentGlideNote += (targetNote - currentGlideNote) * glideCoeff;
 
-    float modEnv1Value = modEnv1.processSample() * modEnv1Amount;
-    float modEnv2Value = modEnv2.processSample() * modEnv2Amount;
+    lastModEnv1Value = modEnv1.processSample();
+    lastModEnv2Value = modEnv2.processSample();
+    float modEnv1Value = lastModEnv1Value * modEnv1Amount;
+    float modEnv2Value = lastModEnv2Value * modEnv2Amount;
 
     float envCutoffMod = 0.0f;
     float envResonanceMod = 0.0f;
@@ -172,7 +175,7 @@ float SynthVoice::processSample (float lfoFilterMod, float lfoPitchMod,
     if (modEnv2DestPitch)      envPitchMod += modEnv2Value;
     if (modEnv2DestVolume)     envVolumeMod += modEnv2Value;
 
-    float totalPitchMod = lfoPitchMod + envPitchMod;
+    float totalPitchMod = lfoPitchMod + envPitchMod + matrixMod.pitch;
 
     float freq1 = calculateFrequency (currentGlideNote, osc1Octave, osc1Semitone,
                                        osc1FineTune, totalPitchMod, driftPitchCents);
@@ -181,10 +184,11 @@ float SynthVoice::processSample (float lfoFilterMod, float lfoPitchMod,
 
     osc1.setFrequency (freq1);
     osc2.setFrequency (freq2);
+    float totalPWMod = lfoPWMod + matrixMod.pulseWidth;
     osc1.setPulseWidth (juce::jlimit (0.01f, 0.99f,
-                                      osc1PulseWidth + lfoPWMod * kPulseWidthModRange));
+                                      osc1PulseWidth + totalPWMod * kPulseWidthModRange));
     osc2.setPulseWidth (juce::jlimit (0.01f, 0.99f,
-                                      osc2PulseWidth + lfoPWMod * kPulseWidthModRange));
+                                      osc2PulseWidth + totalPWMod * kPulseWidthModRange));
 
     float osc1Sample = osc1.processSample();
     float osc2Sample = osc2.processSample();
@@ -194,9 +198,14 @@ float SynthVoice::processSample (float lfoFilterMod, float lfoPitchMod,
     float env2 = ampEnv2.processSample();
     float envN = noiseEnv.processSample();
 
-    float osc1Signal = osc1Sample * env1;
-    float osc2Signal = osc2Sample * env2;
-    float noiseSignal = noiseSample * envN;
+    // Apply matrix level modulation (bipolar, clamped so level stays 0..2x)
+    float osc1LevelScale = juce::jlimit (0.0f, 2.0f, 1.0f + matrixMod.osc1Level);
+    float osc2LevelScale = juce::jlimit (0.0f, 2.0f, 1.0f + matrixMod.osc2Level);
+    float noiseLevelScale = juce::jlimit (0.0f, 2.0f, 1.0f + matrixMod.noiseLevel);
+
+    float osc1Signal = osc1Sample * env1 * osc1LevelScale;
+    float osc2Signal = osc2Sample * env2 * osc2LevelScale;
+    float noiseSignal = noiseSample * envN * noiseLevelScale;
 
     // Filter modulation
     float filterEnvValue = filterEnv.processSample();
@@ -212,10 +221,13 @@ float SynthVoice::processSample (float lfoFilterMod, float lfoPitchMod,
     float lfoCutoffMod = lfoFilterMod * baseCutoff * 0.5f;
     float modEnvCutoffAmount = envCutoffMod * baseCutoff * 0.75f;
 
-    float modulatedCutoff = baseCutoff + envMod + keyTrackMod + velMod + lfoCutoffMod + modEnvCutoffAmount + driftCutoffHz;
+    float matrixCutoffMod = matrixMod.filterCutoff * baseCutoff * 0.75f;
+    float modulatedCutoff = baseCutoff + envMod + keyTrackMod + velMod + lfoCutoffMod
+                          + modEnvCutoffAmount + driftCutoffHz + matrixCutoffMod;
     modulatedCutoff = juce::jlimit (20.0f, 20000.0f, modulatedCutoff);
 
-    float modulatedResonance = juce::jlimit (0.0f, 1.0f, baseResonance + envResonanceMod * 0.75f);
+    float matrixResMod = matrixMod.filterResonance * 0.75f;
+    float modulatedResonance = juce::jlimit (0.0f, 1.0f, baseResonance + envResonanceMod * 0.75f + matrixResMod);
 
     osc1Filter.setCutoff (modulatedCutoff);
     osc2Filter.setCutoff (modulatedCutoff);
@@ -248,8 +260,8 @@ float SynthVoice::processSample (float lfoFilterMod, float lfoPitchMod,
 
     float mixed = osc1Signal + osc2Signal + noiseSignal;
 
-    // Volume LFO modulation
-    float volumeScale = 1.0f + (lfoVolumeMod + envVolumeMod) * 0.5f;
+    // Volume LFO + matrix modulation
+    float volumeScale = 1.0f + (lfoVolumeMod + envVolumeMod + matrixMod.volume) * 0.5f;
     volumeScale = juce::jlimit (0.0f, 2.0f, volumeScale);
     float output = mixed * volumeScale;
 

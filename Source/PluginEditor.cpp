@@ -588,6 +588,13 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
     };
     addAndMakeVisible (sizeButton);
 
+    // Mod matrix page toggle
+    modMatrixButton.setButtonText ("MOD");
+    modMatrixButton.setTooltip ("Toggle modulation matrix view");
+    modMatrixButton.setClickingTogglesState (true);
+    modMatrixButton.onClick = [this] { setModMatrixVisible (modMatrixButton.getToggleState()); };
+    addAndMakeVisible (modMatrixButton);
+
     // Undo/redo buttons
     undoButton.setButtonText ("Undo");
     undoButton.setTooltip ("Undo last parameter change");
@@ -745,6 +752,32 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
 
     addModEnvControls ("modenv1");
     addModEnvControls ("modenv2");
+
+    // --- Mod Matrix ---
+    {
+        juce::StringArray sourceItems { "None", "LFO 1", "LFO 2", "Env 1", "Env 2",
+                                        "Vel", "AfterT", "Mod Whl" };
+        juce::StringArray destItems { "None", "Cutoff", "Reso", "Pitch", "Volume",
+                                      "PW", "Osc1 Lv", "Osc2 Lv", "Noise Lv",
+                                      "LFO1 Rt", "LFO2 Rt" };
+
+        for (int i = 0; i < 8; ++i)
+        {
+            auto slotNum = juce::String (i + 1);
+            auto prefix = "modmatrix_" + slotNum;
+            combos[prefix + "_source"] = createCombo (prefix + "_source", "Src", sourceItems);
+            combos[prefix + "_dest"]   = createCombo (prefix + "_dest", "Dst", destItems);
+            knobs[prefix + "_amount"]  = createKnob (prefix + "_amount", "Amt");
+
+            // Start hidden — shown when mod matrix page is active
+            combos[prefix + "_source"].combo->setVisible (false);
+            combos[prefix + "_source"].label->setVisible (false);
+            combos[prefix + "_dest"].combo->setVisible (false);
+            combos[prefix + "_dest"].label->setVisible (false);
+            knobs[prefix + "_amount"].slider->setVisible (false);
+            knobs[prefix + "_amount"].label->setVisible (false);
+        }
+    }
 
     // --- Chorus ---
     combos["chorus_mode"] = createCombo ("chorus_mode", "Mode", { "Off", "I", "II", "I+II" });
@@ -1025,6 +1058,13 @@ void TillySynthEditor::paint (juce::Graphics& g)
         .withTrimmedBottom (keyboardHeight)
         .reduced (sectionPadding);
 
+    if (showingModMatrix)
+    {
+        drawModMatrixPage (g, contentArea);
+    }
+    else
+    {
+
     int row1H = contentArea.getHeight() * 34 / 100;
     int row2H = contentArea.getHeight() * 31 / 100;
 
@@ -1104,6 +1144,8 @@ void TillySynthEditor::paint (juce::Graphics& g)
     drawSubSectionLabel (g, reverbLabelArea, "REVERB");
 
     drawVUMeter (g, vuArea.reduced (scaleInt (scale, 4), scaleInt (scale, 28)));
+
+    } // else (not showing mod matrix)
 }
 
 // ============================================================
@@ -1123,6 +1165,9 @@ void TillySynthEditor::resized()
 
     // Title button in header
     titleButton.setBounds (8, 4, 140, 36);
+
+    // Mod matrix toggle button (next to title)
+    modMatrixButton.setBounds (152, 12, 48, 20);
 
     // Header controls
     int headerCentreX = getWidth() / 2 - 30;
@@ -1192,35 +1237,42 @@ void TillySynthEditor::resized()
         .withTrimmedBottom (keyboardHeight)
         .reduced (sectionPadding);
 
-    int row1H = contentArea.getHeight() * 34 / 100;
-    int row2H = contentArea.getHeight() * 31 / 100;
+    if (showingModMatrix)
+    {
+        layoutModMatrixPage (contentArea);
+    }
+    else
+    {
+        int row1H = contentArea.getHeight() * 34 / 100;
+        int row2H = contentArea.getHeight() * 31 / 100;
 
-    // Row 1: OSC1 + OSC2 + Noise
-    auto row1 = contentArea.removeFromTop (row1H);
-    layoutNoiseSection (row1.removeFromRight (row1.getWidth() * 24 / 100).reduced (sectionPadding));
-    layoutOscillatorSection (row1.removeFromLeft (row1.getWidth() / 2).reduced (sectionPadding), "osc1");
-    layoutOscillatorSection (row1.reduced (sectionPadding), "osc2");
+        // Row 1: OSC1 + OSC2 + Noise
+        auto row1 = contentArea.removeFromTop (row1H);
+        layoutNoiseSection (row1.removeFromRight (row1.getWidth() * 24 / 100).reduced (sectionPadding));
+        layoutOscillatorSection (row1.removeFromLeft (row1.getWidth() / 2).reduced (sectionPadding), "osc1");
+        layoutOscillatorSection (row1.reduced (sectionPadding), "osc2");
 
-    contentArea.removeFromTop (sectionPadding);
+        contentArea.removeFromTop (sectionPadding);
 
-    // Row 2: Filter + LFO1 + LFO2
-    auto row2 = contentArea.removeFromTop (row2H);
-    int filterWidth = row2.getWidth() * 42 / 100;
-    layoutFilterSection (row2.removeFromLeft (filterWidth).reduced (sectionPadding));
-    auto lfosArea = row2;
-    layoutLFOSection (lfosArea.removeFromLeft (lfosArea.getWidth() / 2).reduced (sectionPadding), "lfo1");
-    layoutLFOSection (lfosArea.reduced (sectionPadding), "lfo2");
+        // Row 2: Filter + LFO1 + LFO2
+        auto row2 = contentArea.removeFromTop (row2H);
+        int filterWidth = row2.getWidth() * 42 / 100;
+        layoutFilterSection (row2.removeFromLeft (filterWidth).reduced (sectionPadding));
+        auto lfosArea = row2;
+        layoutLFOSection (lfosArea.removeFromLeft (lfosArea.getWidth() / 2).reduced (sectionPadding), "lfo1");
+        layoutLFOSection (lfosArea.reduced (sectionPadding), "lfo2");
 
-    contentArea.removeFromTop (sectionPadding);
+        contentArea.removeFromTop (sectionPadding);
 
-    // Row 3: ModEnv1 + ModEnv2 + Effects + Master/VU
-    auto row3 = contentArea;
-    row3.removeFromRight (scaleInt (scale, 60)); // VU column (paint-only)
-    int colW = row3.getWidth() / 4;
-    layoutModEnvSection (row3.removeFromLeft (colW).reduced (sectionPadding), "modenv1");
-    layoutModEnvSection (row3.removeFromLeft (colW).reduced (sectionPadding), "modenv2");
-    layoutEffectsSection (row3.removeFromLeft (colW).reduced (sectionPadding));
-    layoutMasterSection (row3.reduced (sectionPadding));
+        // Row 3: ModEnv1 + ModEnv2 + Effects + Master/VU
+        auto row3 = contentArea;
+        row3.removeFromRight (scaleInt (scale, 60)); // VU column (paint-only)
+        int colW = row3.getWidth() / 4;
+        layoutModEnvSection (row3.removeFromLeft (colW).reduced (sectionPadding), "modenv1");
+        layoutModEnvSection (row3.removeFromLeft (colW).reduced (sectionPadding), "modenv2");
+        layoutEffectsSection (row3.removeFromLeft (colW).reduced (sectionPadding));
+        layoutMasterSection (row3.reduced (sectionPadding));
+    }
 }
 
 // ============================================================
@@ -1533,6 +1585,195 @@ void TillySynthEditor::layoutModEnvSection (juce::Rectangle<int> area, const juc
         modenv1AdsrDisplay->setBounds (envArea);
     else if (prefix == "modenv2" && modenv2AdsrDisplay != nullptr)
         modenv2AdsrDisplay->setBounds (envArea);
+}
+
+void TillySynthEditor::layoutModMatrixPage (juce::Rectangle<int> area)
+{
+    const float scale = lookAndFeel.getScale();
+    const int padding = scaleInt (scale, kSectionPadding);
+
+    // Shared geometry — must match drawModMatrixPage exactly
+    int titleH = scaleInt (scale, 28);
+    int headerRowH = scaleInt (scale, 22);
+    int slotNumW = scaleInt (scale, 36);
+
+    area.removeFromTop (titleH);  // title
+    area.removeFromTop (headerRowH);  // column headers
+    area.removeFromTop (padding);  // gap
+
+    int totalRowSpace = area.getHeight();
+    int rowH = totalRowSpace / 8;
+
+    int remaining = area.getWidth() - slotNumW;
+    int comboW = remaining * 32 / 100;
+    int depthW = remaining - comboW * 2;
+
+    for (int i = 0; i < 8; ++i)
+    {
+        auto prefix = "modmatrix_" + juce::String (i + 1);
+        auto row = area.removeFromTop (rowH);
+
+        row.removeFromLeft (slotNumW);
+
+        // Vertically centre the combo boxes within the row
+        int comboH = juce::jmin (row.getHeight() - 4, scaleInt (scale, 24));
+        int yOffset = (row.getHeight() - comboH) / 2;
+
+        auto srcArea = row.removeFromLeft (comboW).reduced (3, 0).withHeight (comboH).translated (0, yOffset);
+        auto dstArea = row.removeFromLeft (comboW).reduced (3, 0).withHeight (comboH).translated (0, yOffset);
+        auto depthArea = row.reduced (3, 0).withHeight (comboH).translated (0, yOffset);
+
+        if (combos.count (prefix + "_source"))
+        {
+            combos[prefix + "_source"].combo->setBounds (srcArea);
+            combos[prefix + "_source"].label->setVisible (false);
+        }
+        if (combos.count (prefix + "_dest"))
+        {
+            combos[prefix + "_dest"].combo->setBounds (dstArea);
+            combos[prefix + "_dest"].label->setVisible (false);
+        }
+        if (knobs.count (prefix + "_amount"))
+        {
+            knobs[prefix + "_amount"].label->setVisible (false);
+            knobs[prefix + "_amount"].slider->setSliderStyle (juce::Slider::LinearHorizontal);
+            int textW = scaleInt (scale, 48);
+            knobs[prefix + "_amount"].slider->setTextBoxStyle (
+                juce::Slider::TextBoxRight, false, textW, comboH);
+            knobs[prefix + "_amount"].slider->setBounds (depthArea);
+        }
+    }
+}
+
+void TillySynthEditor::drawModMatrixPage (juce::Graphics& g, juce::Rectangle<int> area)
+{
+    const float scale = lookAndFeel.getScale();
+    const int padding = scaleInt (scale, kSectionPadding);
+
+    // Background
+    g.setColour (Colours::panelBackground);
+    g.fillRoundedRectangle (area.toFloat(), 6.0f);
+    g.setColour (Colours::panelBorder.withAlpha (0.6f));
+    g.drawRoundedRectangle (area.toFloat().reduced (0.5f), 6.0f, 1.0f);
+
+    // Shared geometry — must match layoutModMatrixPage exactly
+    int titleH = scaleInt (scale, 28);
+    int headerRowH = scaleInt (scale, 22);
+    int slotNumW = scaleInt (scale, 36);
+
+    // Title
+    g.setColour (Colours::warmAmber());
+    g.setFont (juce::Font (juce::FontOptions (scaleFloat (scale, 16.0f), juce::Font::bold)));
+    g.drawText ("MODULATION MATRIX", area.removeFromTop (titleH), juce::Justification::centred);
+
+    // Column headers — use same column widths as layout
+    int remaining = area.getWidth() - slotNumW;
+    int comboW = remaining * 32 / 100;
+
+    auto headerRow = area.removeFromTop (headerRowH);
+
+    // Underline
+    g.setColour (Colours::panelBorder.withAlpha (0.3f));
+    g.drawLine (static_cast<float> (headerRow.getX() + scaleInt (scale, 12)),
+                static_cast<float> (headerRow.getBottom()),
+                static_cast<float> (headerRow.getRight() - scaleInt (scale, 12)),
+                static_cast<float> (headerRow.getBottom()), 0.75f);
+
+    g.setColour (Colours::labelText.withAlpha (0.7f));
+    g.setFont (juce::Font (juce::FontOptions (scaleFloat (scale, 11.0f), juce::Font::bold)));
+    headerRow.removeFromLeft (slotNumW);
+    g.drawText ("SOURCE", headerRow.removeFromLeft (comboW), juce::Justification::centred);
+    g.drawText ("DESTINATION", headerRow.removeFromLeft (comboW), juce::Justification::centred);
+    g.drawText ("DEPTH", headerRow, juce::Justification::centred);
+
+    area.removeFromTop (padding);
+
+    // Rows
+    int totalRowSpace = area.getHeight();
+    int rowH = totalRowSpace / 8;
+    g.setFont (juce::Font (juce::FontOptions (scaleFloat (scale, 13.0f), juce::Font::bold)));
+
+    for (int i = 0; i < 8; ++i)
+    {
+        auto row = area.removeFromTop (rowH);
+
+        // Alternating row background
+        if (i % 2 == 0)
+        {
+            g.setColour (Colours::panelBorder.withAlpha (0.07f));
+            g.fillRect (row);
+        }
+
+        // Slot number — centred in its column
+        g.setColour (Colours::warmAmber().withAlpha (0.8f));
+        g.drawText (juce::String (i + 1), row.removeFromLeft (slotNumW),
+                    juce::Justification::centred);
+    }
+}
+
+void TillySynthEditor::setModMatrixVisible (bool visible)
+{
+    showingModMatrix = visible;
+    modMatrixButton.setToggleState (visible, juce::dontSendNotification);
+
+    // Toggle visibility of mod matrix components
+    for (int i = 0; i < 8; ++i)
+    {
+        auto prefix = "modmatrix_" + juce::String (i + 1);
+        if (combos.count (prefix + "_source"))
+            combos[prefix + "_source"].combo->setVisible (visible);
+        if (combos.count (prefix + "_dest"))
+            combos[prefix + "_dest"].combo->setVisible (visible);
+        if (knobs.count (prefix + "_amount"))
+            knobs[prefix + "_amount"].slider->setVisible (visible);
+    }
+
+    // Toggle visibility of synth section components (inverse of mod matrix)
+    bool synthVisible = ! visible;
+
+    for (auto& [id, k] : knobs)
+    {
+        if (id.startsWith ("modmatrix_"))
+            continue;
+        if (k.slider != nullptr) k.slider->setVisible (synthVisible);
+        if (k.label != nullptr)  k.label->setVisible (synthVisible);
+    }
+    for (auto& [id, c] : combos)
+    {
+        if (id.startsWith ("modmatrix_"))
+            continue;
+        if (c.combo != nullptr) c.combo->setVisible (synthVisible);
+        if (c.label != nullptr) c.label->setVisible (synthVisible);
+    }
+    for (auto& [id, t] : toggles)
+    {
+        if (t.button != nullptr) t.button->setVisible (synthVisible);
+    }
+    for (auto& [id, ws] : waveformSelectors)
+    {
+        if (ws != nullptr) ws->setVisible (synthVisible);
+    }
+
+    if (osc1AdsrDisplay != nullptr)    osc1AdsrDisplay->setVisible (synthVisible);
+    if (osc2AdsrDisplay != nullptr)    osc2AdsrDisplay->setVisible (synthVisible);
+    if (noiseAdsrDisplay != nullptr)   noiseAdsrDisplay->setVisible (synthVisible);
+    if (filterAdsrDisplay != nullptr)  filterAdsrDisplay->setVisible (synthVisible);
+    if (modenv1AdsrDisplay != nullptr) modenv1AdsrDisplay->setVisible (synthVisible);
+    if (modenv2AdsrDisplay != nullptr) modenv2AdsrDisplay->setVisible (synthVisible);
+
+    // Always keep the master_analog_drift knob hidden (it uses the drift bar instead)
+    if (knobs.count ("master_analog_drift"))
+    {
+        knobs["master_analog_drift"].slider->setVisible (false);
+        knobs["master_analog_drift"].label->setVisible (false);
+    }
+
+    // Header components stay visible regardless of page
+    masterVolumeSlider.setVisible (true);
+    masterVolumeLabel.setVisible (true);
+
+    resized();
+    repaint();
 }
 
 void TillySynthEditor::layoutEffectsSection (juce::Rectangle<int> area)

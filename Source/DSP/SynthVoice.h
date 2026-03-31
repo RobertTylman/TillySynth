@@ -3,6 +3,7 @@
 #include "NoiseOscillator.h"
 #include "Envelope.h"
 #include "SubtractiveFilter.h"
+#include "ModulationMatrix.h"
 
 namespace tillysynth
 {
@@ -18,13 +19,17 @@ public:
 
     float processSample (float lfoFilterMod, float lfoPitchMod,
                          float lfoVolumeMod, float lfoPWMod,
-                         float driftPitchCents, float driftCutoffHz);
+                         float driftPitchCents, float driftCutoffHz,
+                         const ModulationOutput& matrixMod);
 
     bool isActive() const;
     bool isNoteHeld() const { return noteHeld; }
 
     int getCurrentNote() const { return currentNote; }
     int getNoteStartOrder() const { return noteStartOrder; }
+    float getVelocity() const { return currentVelocity; }
+    float getModEnv1Value() const { return lastModEnv1Value; }
+    float getModEnv2Value() const { return lastModEnv2Value; }
 
     void setNoteStartOrder (int order) { noteStartOrder = order; }
 
@@ -110,6 +115,9 @@ private:
     bool modEnv2DestResonance = false;
     bool modEnv2DestPitch = false;
     bool modEnv2DestVolume = false;
+
+    float lastModEnv1Value = 0.0f;
+    float lastModEnv2Value = 0.0f;
 
     double sampleRate = 44100.0;
 

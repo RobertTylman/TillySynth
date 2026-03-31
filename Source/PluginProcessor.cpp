@@ -1,6 +1,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "Parameters.h"
+#include "DSP/ModulationMatrix.h"
 
 namespace tillysynth
 {
@@ -264,6 +265,15 @@ void TillySynthProcessor::updateParametersFromAPVTS()
         getBool (ParamIDs::modEnv2DestCutoff), getBool (ParamIDs::modEnv2DestResonance),
         getBool (ParamIDs::modEnv2DestPitch), getBool (ParamIDs::modEnv2DestVolume));
 
+    // Modulation Matrix
+    for (int i = 0; i < 8; ++i)
+    {
+        auto source = static_cast<ModSource> (getInt (ParamIDs::modMatrixSource[i]));
+        auto dest   = static_cast<ModDest>   (getInt (ParamIDs::modMatrixDest[i]));
+        float amount = getFloat (ParamIDs::modMatrixAmount[i]) / 100.0f;
+        voiceManager.updateModMatrix (i, source, dest, amount);
+    }
+
     // Chorus
     chorus.setMode (static_cast<ChorusMode> (getInt (ParamIDs::chorusMode)));
     chorus.setRate (getFloat (ParamIDs::chorusRate));
@@ -315,6 +325,15 @@ void TillySynthProcessor::handleMidiMessage (const juce::MidiMessage& msg)
     else if (msg.isControllerOfType (64))
     {
         voiceManager.handleSustainPedal (msg.getControllerValue() >= 64);
+    }
+    else if (msg.isChannelPressure())
+    {
+        voiceManager.setAftertouchValue (msg.getChannelPressureValue() / 127.0f);
+    }
+    else if (msg.isAftertouch())
+    {
+        // Polyphonic aftertouch — use as channel-wide for now
+        voiceManager.setAftertouchValue (msg.getAfterTouchValue() / 127.0f);
     }
     else if (msg.isAllNotesOff() || msg.isAllSoundOff())
         voiceManager.handleAllNotesOff();

@@ -3,6 +3,7 @@
 #include "NoiseOscillator.h"
 #include "LFO.h"
 #include "AnalogueDriftEngine.h"
+#include "ModulationMatrix.h"
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <array>
 
@@ -61,6 +62,9 @@ public:
     void setGlideTime (float ms);
     void setPitchBendRange (int semitones);
     void setModWheelValue (float value01);
+    void setAftertouchValue (float value01);
+
+    void updateModMatrix (int slotIndex, ModSource source, ModDest dest, float amount);
 
     AnalogueDriftEngine& getDriftEngine() { return driftEngine; }
     const LFO& getLFO1() const { return lfo1; }
@@ -76,6 +80,7 @@ private:
     LFO lfo1;
     LFO lfo2;
     AnalogueDriftEngine driftEngine;
+    ModulationMatrix modMatrix;
 
     int maxPolyphony = 16;
     bool monoLegato = false;
@@ -83,6 +88,9 @@ private:
     int pitchBendRange = 2;
     float currentPitchBend = 0.0f;
     float modWheelValue = 0.0f;
+    float aftertouchValue = 0.0f;
+    float lfo1BaseRate = 1.0f;
+    float lfo2BaseRate = 1.0f;
 
     int noteOrderCounter = 0;
     bool sustainPedalDown = false;

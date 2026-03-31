@@ -166,6 +166,13 @@ private:
     // Clickable title for theme cycling
     juce::TextButton titleButton;
 
+    // Mod matrix page toggle
+    juce::TextButton modMatrixButton;
+    bool showingModMatrix = false;
+    void setModMatrixVisible (bool visible);
+    void layoutModMatrixPage (juce::Rectangle<int> area);
+    void drawModMatrixPage (juce::Graphics& g, juce::Rectangle<int> area);
+
     // Undo/redo buttons
     juce::TextButton undoButton, redoButton;
 
