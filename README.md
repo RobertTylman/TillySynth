@@ -9,7 +9,7 @@
 </div>
 
 <div align="center">
-  <img src="docs/assets/screenshot.png" width="800" alt="TillySynth Interface">
+  <img src="docs/assets/newscreenshot.png" width="800" alt="TillySynth Interface">
 </div>
 
 ---

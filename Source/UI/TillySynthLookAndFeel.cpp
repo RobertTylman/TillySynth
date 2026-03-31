@@ -39,7 +39,7 @@ void TillySynthLookAndFeel::drawRotarySlider (juce::Graphics& g,
                                                float rotaryEndAngle,
                                                juce::Slider&)
 {
-    float diameter = static_cast<float> (juce::jmin (width, height));
+    float diameter = static_cast<float> (juce::jmin (width, height)) - 2.0f;
     float radius = diameter * 0.35f;
     float centreX = static_cast<float> (x) + static_cast<float> (width) * 0.5f;
     float centreY = static_cast<float> (y) + static_cast<float> (height) * 0.5f;
@@ -98,7 +98,7 @@ void TillySynthLookAndFeel::drawRotarySlider (juce::Graphics& g,
     }
 
     // Layer 5: Arc track
-    float arcRadius = radius + 6.0f;
+    float arcRadius = juce::jmin (radius + 4.0f, diameter * 0.5f - 2.5f);
     float angle = rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
 
     // Background arc
@@ -107,7 +107,7 @@ void TillySynthLookAndFeel::drawRotarySlider (juce::Graphics& g,
         arcTrack.addCentredArc (centreX, centreY, arcRadius, arcRadius,
                                 0.0f, rotaryStartAngle, rotaryEndAngle, true);
         g.setColour (Colours::knobOutline.withAlpha (0.25f));
-        g.strokePath (arcTrack, juce::PathStrokeType (4.0f, juce::PathStrokeType::curved,
+        g.strokePath (arcTrack, juce::PathStrokeType (3.0f, juce::PathStrokeType::curved,
                                                        juce::PathStrokeType::rounded));
     }
 
@@ -117,7 +117,7 @@ void TillySynthLookAndFeel::drawRotarySlider (juce::Graphics& g,
         arcFilled.addCentredArc (centreX, centreY, arcRadius, arcRadius,
                                  0.0f, rotaryStartAngle, angle, true);
         g.setColour (Colours::warmAmber());
-        g.strokePath (arcFilled, juce::PathStrokeType (4.0f, juce::PathStrokeType::curved,
+        g.strokePath (arcFilled, juce::PathStrokeType (3.0f, juce::PathStrokeType::curved,
                                                         juce::PathStrokeType::rounded));
     }
 
