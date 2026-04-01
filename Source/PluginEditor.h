@@ -172,6 +172,8 @@ private:
     void setModMatrixVisible (bool visible);
     void layoutModMatrixPage (juce::Rectangle<int> area);
     void drawModMatrixPage (juce::Graphics& g, juce::Rectangle<int> area);
+    void layoutModRangesSection (juce::Rectangle<int> area);
+    void drawModRangesSection (juce::Graphics& g, juce::Rectangle<int> area);
 
     // Undo/redo buttons
     juce::TextButton undoButton, redoButton;

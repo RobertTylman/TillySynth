@@ -274,6 +274,20 @@ void TillySynthProcessor::updateParametersFromAPVTS()
         voiceManager.updateModMatrix (i, source, dest, amount);
     }
 
+    // Modulation destination ranges
+    ModDestRanges ranges;
+    ranges.cutoff     = getFloat (ParamIDs::modRangeCutoff) / 100.0f;
+    ranges.resonance  = getFloat (ParamIDs::modRangeResonance) / 100.0f;
+    ranges.pitch      = getFloat (ParamIDs::modRangePitch);
+    ranges.volume     = getFloat (ParamIDs::modRangeVolume) / 100.0f;
+    ranges.pulseWidth = getFloat (ParamIDs::modRangePW) / 100.0f;
+    ranges.osc1Level  = getFloat (ParamIDs::modRangeOsc1Level) / 100.0f;
+    ranges.osc2Level  = getFloat (ParamIDs::modRangeOsc2Level) / 100.0f;
+    ranges.noiseLevel = getFloat (ParamIDs::modRangeNoiseLevel) / 100.0f;
+    ranges.lfo1Rate   = getFloat (ParamIDs::modRangeLfo1Rate);
+    ranges.lfo2Rate   = getFloat (ParamIDs::modRangeLfo2Rate);
+    voiceManager.updateModDestRanges (ranges);
+
     // Chorus
     chorus.setMode (static_cast<ChorusMode> (getInt (ParamIDs::chorusMode)));
     chorus.setRate (getFloat (ParamIDs::chorusRate));

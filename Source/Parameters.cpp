@@ -300,6 +300,56 @@ static void addModMatrixParams (juce::AudioProcessorValueTreeState::ParameterLay
     }
 }
 
+static void addModRangeParams (juce::AudioProcessorValueTreeState::ParameterLayout& layout)
+{
+    // Filter cutoff range: percentage of base cutoff (0–400%, default 75%)
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "modrange_cutoff", 1 }, "Mod Range Cutoff",
+        juce::NormalisableRange<float> (0.0f, 400.0f, 1.0f), 75.0f));
+
+    // Filter resonance range: percentage of full range (0–100%, default 75%)
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "modrange_resonance", 1 }, "Mod Range Resonance",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f), 75.0f));
+
+    // Pitch range in semitones (0–48, default 2)
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "modrange_pitch", 1 }, "Mod Range Pitch",
+        juce::NormalisableRange<float> (0.0f, 48.0f, 0.1f), 2.0f));
+
+    // Volume range: percentage (0–200%, default 50%)
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "modrange_volume", 1 }, "Mod Range Volume",
+        juce::NormalisableRange<float> (0.0f, 200.0f, 1.0f), 50.0f));
+
+    // Pulse width range: percentage of PW travel (0–100%, default 45%)
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "modrange_pw", 1 }, "Mod Range PW",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f), 45.0f));
+
+    // Osc level ranges: percentage (0–200%, default 100%)
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "modrange_osc1_level", 1 }, "Mod Range Osc1 Level",
+        juce::NormalisableRange<float> (0.0f, 200.0f, 1.0f), 100.0f));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "modrange_osc2_level", 1 }, "Mod Range Osc2 Level",
+        juce::NormalisableRange<float> (0.0f, 200.0f, 1.0f), 100.0f));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "modrange_noise_level", 1 }, "Mod Range Noise Level",
+        juce::NormalisableRange<float> (0.0f, 200.0f, 1.0f), 100.0f));
+
+    // LFO rate ranges in Hz (0–50, default 10)
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "modrange_lfo1_rate", 1 }, "Mod Range LFO1 Rate",
+        juce::NormalisableRange<float> (0.0f, 50.0f, 0.1f), 10.0f));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "modrange_lfo2_rate", 1 }, "Mod Range LFO2 Rate",
+        juce::NormalisableRange<float> (0.0f, 50.0f, 0.1f), 10.0f));
+}
+
 juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
 {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
@@ -313,6 +363,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
     addModEnvParams (layout, "modenv1", "Mod Env 1");
     addModEnvParams (layout, "modenv2", "Mod Env 2");
     addModMatrixParams (layout);
+    addModRangeParams (layout);
     addChorusParams (layout);
     addReverbParams (layout);
     addMasterParams (layout);

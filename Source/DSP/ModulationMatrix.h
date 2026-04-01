@@ -89,6 +89,24 @@ struct ModulationOutput
 };
 
 // ============================================================
+//  Per-destination modulation ranges — replace hardcoded scaling
+// ============================================================
+
+struct ModDestRanges
+{
+    float cutoff     = 0.75f;   // fraction of baseCutoff
+    float resonance  = 0.75f;   // fraction of full resonance range
+    float pitch      = 2.0f;    // semitones
+    float volume     = 0.50f;   // fraction
+    float pulseWidth = 0.45f;   // fraction of PW travel
+    float osc1Level  = 1.0f;    // multiplier
+    float osc2Level  = 1.0f;    // multiplier
+    float noiseLevel = 1.0f;    // multiplier
+    float lfo1Rate   = 10.0f;   // Hz
+    float lfo2Rate   = 10.0f;   // Hz
+};
+
+// ============================================================
 //  Source values snapshot — filled once per sample (global)
 //  or per voice (velocity, mod envs)
 // ============================================================

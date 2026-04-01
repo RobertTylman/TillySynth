@@ -65,6 +65,7 @@ public:
     void setAftertouchValue (float value01);
 
     void updateModMatrix (int slotIndex, ModSource source, ModDest dest, float amount);
+    void updateModDestRanges (const ModDestRanges& ranges);
 
     AnalogueDriftEngine& getDriftEngine() { return driftEngine; }
     const LFO& getLFO1() const { return lfo1; }
@@ -81,6 +82,7 @@ private:
     LFO lfo2;
     AnalogueDriftEngine driftEngine;
     ModulationMatrix modMatrix;
+    ModDestRanges modDestRanges;
 
     int maxPolyphony = 16;
     bool monoLegato = false;

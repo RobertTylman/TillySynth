@@ -134,6 +134,18 @@ namespace ParamIDs
         "modmatrix_1_amount", "modmatrix_2_amount", "modmatrix_3_amount", "modmatrix_4_amount",
         "modmatrix_5_amount", "modmatrix_6_amount", "modmatrix_7_amount", "modmatrix_8_amount"
     };
+
+    // Modulation destination ranges — how strongly each destination responds
+    inline constexpr const char* modRangeCutoff    = "modrange_cutoff";
+    inline constexpr const char* modRangeResonance = "modrange_resonance";
+    inline constexpr const char* modRangePitch     = "modrange_pitch";
+    inline constexpr const char* modRangeVolume    = "modrange_volume";
+    inline constexpr const char* modRangePW        = "modrange_pw";
+    inline constexpr const char* modRangeOsc1Level = "modrange_osc1_level";
+    inline constexpr const char* modRangeOsc2Level = "modrange_osc2_level";
+    inline constexpr const char* modRangeNoiseLevel = "modrange_noise_level";
+    inline constexpr const char* modRangeLfo1Rate  = "modrange_lfo1_rate";
+    inline constexpr const char* modRangeLfo2Rate  = "modrange_lfo2_rate";
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();

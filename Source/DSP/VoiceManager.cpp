@@ -187,9 +187,9 @@ void VoiceManager::renderNextSample (float& leftOut, float& rightOut)
     auto lfoRateMod = modMatrix.compute (lfoRateSources);
 
     if (lfoRateMod.lfo1Rate != 0.0f)
-        lfo1.setRate (juce::jmax (0.01f, lfo1BaseRate + lfoRateMod.lfo1Rate * 10.0f));
+        lfo1.setRate (juce::jmax (0.01f, lfo1BaseRate + lfoRateMod.lfo1Rate * modDestRanges.lfo1Rate));
     if (lfoRateMod.lfo2Rate != 0.0f)
-        lfo2.setRate (juce::jmax (0.01f, lfo2BaseRate + lfoRateMod.lfo2Rate * 10.0f));
+        lfo2.setRate (juce::jmax (0.01f, lfo2BaseRate + lfoRateMod.lfo2Rate * modDestRanges.lfo2Rate));
 
     float mono = 0.0f;
 
@@ -354,6 +354,13 @@ void VoiceManager::setAftertouchValue (float value01)
 void VoiceManager::updateModMatrix (int slotIndex, ModSource source, ModDest dest, float amount)
 {
     modMatrix.setSlot (slotIndex, source, dest, amount);
+}
+
+void VoiceManager::updateModDestRanges (const ModDestRanges& ranges)
+{
+    modDestRanges = ranges;
+    for (int i = 0; i < kMaxVoices; ++i)
+        voices[static_cast<size_t> (i)].setModDestRanges (ranges);
 }
 
 int VoiceManager::findFreeVoice() const

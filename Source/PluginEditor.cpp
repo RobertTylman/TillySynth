@@ -779,6 +779,27 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
         }
     }
 
+    // --- Mod Destination Ranges ---
+    {
+        auto addModRange = [&] (const char* id, const char* label)
+        {
+            knobs[id] = createKnob (id, label);
+            knobs[id].slider->setVisible (false);
+            knobs[id].label->setVisible (false);
+        };
+
+        addModRange ("modrange_cutoff",      "Cutoff");
+        addModRange ("modrange_resonance",   "Reso");
+        addModRange ("modrange_pitch",       "Pitch");
+        addModRange ("modrange_volume",      "Volume");
+        addModRange ("modrange_pw",          "PW");
+        addModRange ("modrange_osc1_level",  "Osc1 Lv");
+        addModRange ("modrange_osc2_level",  "Osc2 Lv");
+        addModRange ("modrange_noise_level", "Noise Lv");
+        addModRange ("modrange_lfo1_rate",   "LFO1 Rt");
+        addModRange ("modrange_lfo2_rate",   "LFO2 Rt");
+    }
+
     // --- Chorus ---
     combos["chorus_mode"] = createCombo ("chorus_mode", "Mode", { "Off", "I", "II", "I+II" });
     knobs["chorus_rate"]  = createKnob ("chorus_rate", "Rate");
@@ -1596,17 +1617,20 @@ void TillySynthEditor::layoutModMatrixPage (juce::Rectangle<int> area)
     int titleH = scaleInt (scale, 28);
     int headerRowH = scaleInt (scale, 22);
     int slotNumW = scaleInt (scale, 36);
+    int rangesSectionH = scaleInt (scale, 90);
 
     area.removeFromTop (titleH);  // title
     area.removeFromTop (headerRowH);  // column headers
     area.removeFromTop (padding);  // gap
+
+    // Reserve bottom space for destination ranges
+    auto rangesArea = area.removeFromBottom (rangesSectionH);
 
     int totalRowSpace = area.getHeight();
     int rowH = totalRowSpace / 8;
 
     int remaining = area.getWidth() - slotNumW;
     int comboW = remaining * 32 / 100;
-    int depthW = remaining - comboW * 2;
 
     for (int i = 0; i < 8; ++i)
     {
@@ -1643,6 +1667,56 @@ void TillySynthEditor::layoutModMatrixPage (juce::Rectangle<int> area)
             knobs[prefix + "_amount"].slider->setBounds (depthArea);
         }
     }
+
+    // Layout destination range knobs
+    layoutModRangesSection (rangesArea);
+}
+
+void TillySynthEditor::layoutModRangesSection (juce::Rectangle<int> area)
+{
+    const float scale = lookAndFeel.getScale();
+
+    // Title row
+    int titleH = scaleInt (scale, 20);
+    area.removeFromTop (titleH);
+    area.removeFromTop (scaleInt (scale, 2));
+
+    // Two rows of 5 knobs each
+    const char* rangeIds[] = {
+        "modrange_cutoff", "modrange_resonance", "modrange_pitch",
+        "modrange_volume", "modrange_pw",
+        "modrange_osc1_level", "modrange_osc2_level", "modrange_noise_level",
+        "modrange_lfo1_rate", "modrange_lfo2_rate"
+    };
+
+    int rowH = area.getHeight() / 2;
+    int knobW = area.getWidth() / 5;
+
+    for (int row = 0; row < 2; ++row)
+    {
+        auto rowArea = area.removeFromTop (rowH);
+        for (int col = 0; col < 5; ++col)
+        {
+            int idx = row * 5 + col;
+            auto cellArea = rowArea.removeFromLeft (knobW).reduced (2, 0);
+
+            auto& k = knobs[rangeIds[idx]];
+            k.label->setVisible (showingModMatrix);
+            k.slider->setSliderStyle (juce::Slider::LinearHorizontal);
+            int textW = scaleInt (scale, 40);
+            int sliderH = scaleInt (scale, 18);
+            int labelH = scaleInt (scale, 14);
+
+            auto labelArea = cellArea.removeFromTop (labelH);
+            k.label->setBounds (labelArea);
+            k.label->setFont (juce::Font (juce::FontOptions (scaleFloat (scale, 10.0f))));
+            k.label->setJustificationType (juce::Justification::centred);
+
+            auto sliderArea = cellArea.withHeight (sliderH);
+            k.slider->setTextBoxStyle (juce::Slider::TextBoxRight, false, textW, sliderH);
+            k.slider->setBounds (sliderArea);
+        }
+    }
 }
 
 void TillySynthEditor::drawModMatrixPage (juce::Graphics& g, juce::Rectangle<int> area)
@@ -1660,6 +1734,7 @@ void TillySynthEditor::drawModMatrixPage (juce::Graphics& g, juce::Rectangle<int
     int titleH = scaleInt (scale, 28);
     int headerRowH = scaleInt (scale, 22);
     int slotNumW = scaleInt (scale, 36);
+    int rangesSectionH = scaleInt (scale, 90);
 
     // Title
     g.setColour (Colours::warmAmber());
@@ -1688,6 +1763,9 @@ void TillySynthEditor::drawModMatrixPage (juce::Graphics& g, juce::Rectangle<int
 
     area.removeFromTop (padding);
 
+    // Reserve bottom space for destination ranges
+    auto rangesArea = area.removeFromBottom (rangesSectionH);
+
     // Rows
     int totalRowSpace = area.getHeight();
     int rowH = totalRowSpace / 8;
@@ -1709,6 +1787,27 @@ void TillySynthEditor::drawModMatrixPage (juce::Graphics& g, juce::Rectangle<int
         g.drawText (juce::String (i + 1), row.removeFromLeft (slotNumW),
                     juce::Justification::centred);
     }
+
+    // Destination ranges section
+    drawModRangesSection (g, rangesArea);
+}
+
+void TillySynthEditor::drawModRangesSection (juce::Graphics& g, juce::Rectangle<int> area)
+{
+    const float scale = lookAndFeel.getScale();
+
+    // Separator line
+    g.setColour (Colours::panelBorder.withAlpha (0.3f));
+    g.drawLine (static_cast<float> (area.getX() + scaleInt (scale, 12)),
+                static_cast<float> (area.getY()),
+                static_cast<float> (area.getRight() - scaleInt (scale, 12)),
+                static_cast<float> (area.getY()), 0.75f);
+
+    // Title
+    int titleH = scaleInt (scale, 20);
+    g.setColour (Colours::warmAmber());
+    g.setFont (juce::Font (juce::FontOptions (scaleFloat (scale, 12.0f), juce::Font::bold)));
+    g.drawText ("DESTINATION RANGES", area.removeFromTop (titleH), juce::Justification::centred);
 }
 
 void TillySynthEditor::setModMatrixVisible (bool visible)
@@ -1728,12 +1827,28 @@ void TillySynthEditor::setModMatrixVisible (bool visible)
             knobs[prefix + "_amount"].slider->setVisible (visible);
     }
 
+    // Toggle visibility of mod range knobs
+    const char* rangeIds[] = {
+        "modrange_cutoff", "modrange_resonance", "modrange_pitch",
+        "modrange_volume", "modrange_pw",
+        "modrange_osc1_level", "modrange_osc2_level", "modrange_noise_level",
+        "modrange_lfo1_rate", "modrange_lfo2_rate"
+    };
+    for (auto* id : rangeIds)
+    {
+        if (knobs.count (id))
+        {
+            knobs[id].slider->setVisible (visible);
+            knobs[id].label->setVisible (visible);
+        }
+    }
+
     // Toggle visibility of synth section components (inverse of mod matrix)
     bool synthVisible = ! visible;
 
     for (auto& [id, k] : knobs)
     {
-        if (id.startsWith ("modmatrix_"))
+        if (id.startsWith ("modmatrix_") || id.startsWith ("modrange_"))
             continue;
         if (k.slider != nullptr) k.slider->setVisible (synthVisible);
         if (k.label != nullptr)  k.label->setVisible (synthVisible);

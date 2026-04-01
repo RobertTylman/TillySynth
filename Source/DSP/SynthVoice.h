@@ -64,6 +64,7 @@ public:
                            bool destPitch, bool destVolume);
 
     void setGlideTime (float glideMs);
+    void setModDestRanges (const ModDestRanges& ranges) { modRanges = ranges; }
 
 private:
     float calculateFrequency (float note, int octave, int semitone, float fineCents,
@@ -133,6 +134,8 @@ private:
     // Pending note-on for after fade completes
     int pendingNote = -1;
     float pendingVelocity = 0.0f;
+
+    ModDestRanges modRanges;
 };
 
 } // namespace tillysynth

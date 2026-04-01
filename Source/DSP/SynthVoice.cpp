@@ -4,7 +4,7 @@
 namespace tillysynth
 {
 
-static constexpr float kPulseWidthModRange = 0.45f;
+// Pulse width mod range now driven by modRanges.pulseWidth
 
 void SynthVoice::prepare (double sr, int samplesPerBlock)
 {
@@ -185,10 +185,11 @@ float SynthVoice::processSample (float lfoFilterMod, float lfoPitchMod,
     osc1.setFrequency (freq1);
     osc2.setFrequency (freq2);
     float totalPWMod = lfoPWMod + matrixMod.pulseWidth;
+    float pwRange = juce::jlimit (0.0f, 0.49f, modRanges.pulseWidth);
     osc1.setPulseWidth (juce::jlimit (0.01f, 0.99f,
-                                      osc1PulseWidth + totalPWMod * kPulseWidthModRange));
+                                      osc1PulseWidth + totalPWMod * pwRange));
     osc2.setPulseWidth (juce::jlimit (0.01f, 0.99f,
-                                      osc2PulseWidth + totalPWMod * kPulseWidthModRange));
+                                      osc2PulseWidth + totalPWMod * pwRange));
 
     float osc1Sample = osc1.processSample();
     float osc2Sample = osc2.processSample();
@@ -198,10 +199,10 @@ float SynthVoice::processSample (float lfoFilterMod, float lfoPitchMod,
     float env2 = ampEnv2.processSample();
     float envN = noiseEnv.processSample();
 
-    // Apply matrix level modulation (bipolar, clamped so level stays 0..2x)
-    float osc1LevelScale = juce::jlimit (0.0f, 2.0f, 1.0f + matrixMod.osc1Level);
-    float osc2LevelScale = juce::jlimit (0.0f, 2.0f, 1.0f + matrixMod.osc2Level);
-    float noiseLevelScale = juce::jlimit (0.0f, 2.0f, 1.0f + matrixMod.noiseLevel);
+    // Apply matrix level modulation scaled by mod ranges
+    float osc1LevelScale = juce::jlimit (0.0f, 2.0f, 1.0f + matrixMod.osc1Level * modRanges.osc1Level);
+    float osc2LevelScale = juce::jlimit (0.0f, 2.0f, 1.0f + matrixMod.osc2Level * modRanges.osc2Level);
+    float noiseLevelScale = juce::jlimit (0.0f, 2.0f, 1.0f + matrixMod.noiseLevel * modRanges.noiseLevel);
 
     float osc1Signal = osc1Sample * env1 * osc1LevelScale;
     float osc2Signal = osc2Sample * env2 * osc2LevelScale;
@@ -219,15 +220,15 @@ float SynthVoice::processSample (float lfoFilterMod, float lfoPitchMod,
 
     // LFO cutoff modulation (bipolar, scaled to useful range)
     float lfoCutoffMod = lfoFilterMod * baseCutoff * 0.5f;
-    float modEnvCutoffAmount = envCutoffMod * baseCutoff * 0.75f;
+    float modEnvCutoffAmount = envCutoffMod * baseCutoff * modRanges.cutoff;
 
-    float matrixCutoffMod = matrixMod.filterCutoff * baseCutoff * 0.75f;
+    float matrixCutoffMod = matrixMod.filterCutoff * baseCutoff * modRanges.cutoff;
     float modulatedCutoff = baseCutoff + envMod + keyTrackMod + velMod + lfoCutoffMod
                           + modEnvCutoffAmount + driftCutoffHz + matrixCutoffMod;
     modulatedCutoff = juce::jlimit (20.0f, 20000.0f, modulatedCutoff);
 
-    float matrixResMod = matrixMod.filterResonance * 0.75f;
-    float modulatedResonance = juce::jlimit (0.0f, 1.0f, baseResonance + envResonanceMod * 0.75f + matrixResMod);
+    float matrixResMod = matrixMod.filterResonance * modRanges.resonance;
+    float modulatedResonance = juce::jlimit (0.0f, 1.0f, baseResonance + envResonanceMod * modRanges.resonance + matrixResMod);
 
     osc1Filter.setCutoff (modulatedCutoff);
     osc2Filter.setCutoff (modulatedCutoff);
@@ -261,7 +262,7 @@ float SynthVoice::processSample (float lfoFilterMod, float lfoPitchMod,
     float mixed = osc1Signal + osc2Signal + noiseSignal;
 
     // Volume LFO + matrix modulation
-    float volumeScale = 1.0f + (lfoVolumeMod + envVolumeMod + matrixMod.volume) * 0.5f;
+    float volumeScale = 1.0f + (lfoVolumeMod + envVolumeMod + matrixMod.volume) * modRanges.volume;
     volumeScale = juce::jlimit (0.0f, 2.0f, volumeScale);
     float output = mixed * volumeScale;
 
@@ -396,7 +397,7 @@ float SynthVoice::calculateFrequency (float note, int octave, int semitone, floa
                          + static_cast<float> (octave * 12)
                          + static_cast<float> (semitone);
 
-    float totalCents = fineCents + driftCents + pitchMod * 200.0f;
+    float totalCents = fineCents + driftCents + pitchMod * modRanges.pitch * 100.0f;
 
     float midiNote = totalSemitones + totalCents / 100.0f;
 
