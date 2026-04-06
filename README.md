@@ -84,6 +84,11 @@ The build will generate **VST3**, **AU** (macOS only), and **Standalone** versio
 
 For a file-by-file walkthrough of the entire `Source/` tree, see [docs/SOURCE_FILE_REFERENCE.md](docs/SOURCE_FILE_REFERENCE.md).
 
+### Launching The Standalone Synth
+```bash
+open build/TillySynth_artefacts/Release/Standalone/TillySynth.app
+```
+
 ### Launching The Preset Review App
 ```bash
 open 'build/TillyPresetReview_artefacts/Release/TillySynth Preset Review.app'
