@@ -273,12 +273,13 @@ void VoiceManager::updateNoiseEnv (float attack, float decay, float sustain, flo
         voice.setNoiseEnvParams (attack, decay, sustain, release);
 }
 
-void VoiceManager::updateFilterParams (FilterMode mode, bool is24dB, float cutoff, float resonance,
+void VoiceManager::updateFilterParams (FilterMode mode, FilterModel model, bool is24dB,
+                                        float cutoff, float resonance,
                                         float envAmount, float keyTracking, float velocity,
                                         FilterTarget target)
 {
     for (auto& voice : voices)
-        voice.setFilterParams (mode, is24dB, cutoff, resonance, envAmount, keyTracking, velocity, target);
+        voice.setFilterParams (mode, model, is24dB, cutoff, resonance, envAmount, keyTracking, velocity, target);
 }
 
 void VoiceManager::updateLFO1 (Waveform wf, float rate, float depth,

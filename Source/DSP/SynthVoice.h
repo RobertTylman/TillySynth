@@ -51,7 +51,8 @@ public:
     void setNoiseEnvParams (float attackMs, float decayMs, float sustain01, float releaseMs);
 
     // Filter params
-    void setFilterParams (FilterMode mode, bool is24dB, float cutoffHz, float resonance01,
+    void setFilterParams (FilterMode mode, FilterModel model, bool is24dB,
+                          float cutoffHz, float resonance01,
                           float envAmount, float keyTracking01, float velocity01,
                           FilterTarget target);
 

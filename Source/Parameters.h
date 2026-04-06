@@ -37,6 +37,7 @@ namespace ParamIDs
     inline constexpr const char* osc2Release       = "osc2_release";
 
     // Filter
+    inline constexpr const char* filterModel       = "filter_model";
     inline constexpr const char* filterMode        = "filter_mode";
     inline constexpr const char* filterSlope       = "filter_slope";
     inline constexpr const char* filterTarget      = "filter_target";

@@ -266,6 +266,9 @@ float SynthVoice::processSample (float lfoFilterMod, float lfoPitchMod,
     volumeScale = juce::jlimit (0.0f, 2.0f, volumeScale);
     float output = mixed * volumeScale;
 
+    // Soft-clip to tame volume spikes from heavy modulation or resonance
+    output = std::tanh (output);
+
     if (stealing)
         output *= stealFadeLevel;
 
@@ -336,13 +339,15 @@ void SynthVoice::setFilterEnvParams (float attackMs, float decayMs, float sustai
     filterEnv.setParameters (attackMs, decayMs, sustain01, releaseMs);
 }
 
-void SynthVoice::setFilterParams (FilterMode mode, bool is24dB, float cutoffHz, float resonance01,
+void SynthVoice::setFilterParams (FilterMode mode, FilterModel model, bool is24dB,
+                                   float cutoffHz, float resonance01,
                                    float envAmount, float keyTracking01, float velocity01,
                                    FilterTarget target)
 {
     for (auto* filter : { &osc1Filter, &osc2Filter, &noiseFilter })
     {
         filter->setMode (mode);
+        filter->setModel (model);
         filter->setSlope24dB (is24dB);
         filter->setResonance (resonance01);
     }

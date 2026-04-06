@@ -220,6 +220,7 @@ void TillySynthProcessor::updateParametersFromAPVTS()
     // Filter
     voiceManager.updateFilterParams (
         static_cast<FilterMode> (getInt (ParamIDs::filterMode)),
+        static_cast<FilterModel> (getInt (ParamIDs::filterModel)),
         getInt (ParamIDs::filterSlope) == 1,
         getFloat (ParamIDs::filterCutoff),
         getFloat (ParamIDs::filterResonance) / 100.0f,

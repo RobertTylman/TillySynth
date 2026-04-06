@@ -4,6 +4,7 @@ namespace tillysynth
 {
 
 static juce::StringArray waveformChoices { "Sine", "Sawtooth", "Square", "Triangle" };
+static juce::StringArray filterModelChoices { "Standard", "Ladder", "Vintage" };
 static juce::StringArray filterModeChoices { "Low-pass", "High-pass", "Band-pass", "Notch" };
 static juce::StringArray filterSlopeChoices { "12 dB/oct", "24 dB/oct" };
 static juce::StringArray filterTargetChoices { "Osc 1", "Osc 2", "Osc 1+2", "Noise", "All" };
@@ -65,6 +66,9 @@ static void addOscillatorParams (juce::AudioProcessorValueTreeState::ParameterLa
 
 static void addFilterParams (juce::AudioProcessorValueTreeState::ParameterLayout& layout)
 {
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { "filter_model", 1 }, "Filter Model", filterModelChoices, 0));
+
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { "filter_mode", 1 }, "Filter Mode", filterModeChoices, 0));
 

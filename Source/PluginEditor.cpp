@@ -705,6 +705,7 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
     knobs["noise_release"] = createKnob ("noise_release", "R");
 
     // --- Filter ---
+    combos["filter_model"]  = createCombo ("filter_model", "Model", { "Std", "Ladder", "Vintage" });
     combos["filter_mode"]   = createCombo ("filter_mode", "Mode", { "LP", "HP", "BP", "Notch" });
     combos["filter_slope"]  = createCombo ("filter_slope", "Slope", { "12dB", "24dB" });
     combos["filter_target"] = createCombo ("filter_target", "Target", { "Osc1", "Osc2", "Both", "Noise", "All" });
@@ -891,8 +892,18 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
     setKnobTip ("noise_sustain", "Noise envelope sustain level");
     setKnobTip ("noise_release", "Noise envelope release time (ms)");
 
-    setComboTip ("filter_mode", "Filter type: Low-pass, High-pass, Band-pass, or Notch");
-    setComboTip ("filter_slope", "Filter steepness: 12 or 24 dB per octave");
+    setComboTip ("filter_model",
+        "Standard: clean digital biquad, precise and neutral. "
+        "Ladder: Moog-style 4-pole with built-in saturation, fat and aggressive at high resonance. "
+        "Vintage: one-pole cascade with soft tanh saturation between stages, warm and gentle rolloff.");
+    setComboTip ("filter_mode",
+        "Low-pass: removes highs above the cutoff, the classic subtractive sound. "
+        "High-pass: removes lows below the cutoff, thins out the sound. "
+        "Band-pass: keeps only frequencies near the cutoff, nasal/vocal quality. "
+        "Notch: cuts a narrow band at the cutoff, phaser-like hollow tone.");
+    setComboTip ("filter_slope",
+        "12 dB/oct: gentler rolloff, more harmonics pass through. "
+        "24 dB/oct: steeper rolloff, more dramatic filtering.");
     setComboTip ("filter_target", "Choose which source the filter affects");
     setKnobTip ("filter_cutoff", "Filter cutoff frequency in Hz");
     setKnobTip ("filter_resonance", "Filter resonance / emphasis at cutoff");
@@ -930,6 +941,27 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
     };
     addModEnvTips ("modenv1");
     addModEnvTips ("modenv2");
+
+    // Mod matrix slot tooltips
+    for (int i = 0; i < 8; ++i)
+    {
+        auto prefix = "modmatrix_" + juce::String (i + 1);
+        setComboTip (prefix + "_source", "Modulation source: which signal drives this routing");
+        setComboTip (prefix + "_dest", "Modulation destination: which parameter is modulated");
+        setKnobTip (prefix + "_amount", "Modulation depth: how much the source affects the destination (-100% to +100%)");
+    }
+
+    // Mod destination range tooltips
+    setKnobTip ("modrange_cutoff", "Max cutoff travel from modulation (% of base cutoff)");
+    setKnobTip ("modrange_resonance", "Max resonance travel from modulation (% of full range)");
+    setKnobTip ("modrange_pitch", "Max pitch modulation range in semitones");
+    setKnobTip ("modrange_volume", "Max volume modulation range (% of base level)");
+    setKnobTip ("modrange_pw", "Max pulse width modulation range (% of PW travel)");
+    setKnobTip ("modrange_osc1_level", "Max Osc 1 level modulation range (% of base level)");
+    setKnobTip ("modrange_osc2_level", "Max Osc 2 level modulation range (% of base level)");
+    setKnobTip ("modrange_noise_level", "Max noise level modulation range (% of base level)");
+    setKnobTip ("modrange_lfo1_rate", "Max LFO 1 rate modulation range in Hz");
+    setKnobTip ("modrange_lfo2_rate", "Max LFO 2 rate modulation range in Hz");
 
     setComboTip ("chorus_mode", "Chorus mode: Off, I, II, or I+II (Juno-style)");
     setKnobTip ("chorus_rate", "Chorus LFO speed");
@@ -1461,9 +1493,10 @@ void TillySynthEditor::layoutFilterSection (juce::Rectangle<int> area)
         }
     };
 
-    // Row 1: Mode + Slope + Target + Cutoff + Reso
-    int colW1 = area.getWidth() / 5;
+    // Row 1: Model + Mode + Slope + Target + Cutoff + Reso
+    int colW1 = area.getWidth() / 6;
     auto row1 = area.removeFromTop (knobH);
+    placeCombo ("filter_model", row1, colW1);
     placeCombo ("filter_mode", row1, colW1);
     placeCombo ("filter_slope", row1, colW1);
     placeCombo ("filter_target", row1, colW1);
