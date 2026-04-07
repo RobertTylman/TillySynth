@@ -43,6 +43,7 @@ void TillySynthProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     reverbSpec.numChannels = 2;
     reverb.prepare (reverbSpec);
 
+    outputStage.prepare (sampleRate, samplesPerBlock);
     masterVolume.reset (sampleRate, 0.02);
 }
 
@@ -132,6 +133,9 @@ void TillySynthProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         }
     }
 
+    // Output character stage (final processing before scope/metering)
+    outputStage.process (buffer);
+
     // Fill scope buffer (downsample to fit)
     {
         int writePos = scopeWritePos.load();
@@ -149,10 +153,13 @@ void TillySynthProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // Expose LFO state for UI
     lfo1Phase.store (voiceManager.getLFO1().getPhase());
     lfo2Phase.store (voiceManager.getLFO2().getPhase());
+    lfo3Phase.store (voiceManager.getLFO3().getPhase());
     lfo1Waveform.store (static_cast<int> (voiceManager.getLFO1().getWaveform()));
     lfo2Waveform.store (static_cast<int> (voiceManager.getLFO2().getWaveform()));
+    lfo3Waveform.store (static_cast<int> (voiceManager.getLFO3().getWaveform()));
     lfo1Rate.store (voiceManager.getLFO1().getRate());
     lfo2Rate.store (voiceManager.getLFO2().getRate());
+    lfo3Rate.store (voiceManager.getLFO3().getRate());
 
     // Update output levels for VU meter
     outputLevelLeft.store (buffer.getRMSLevel (0, 0, numSamples));
@@ -250,6 +257,14 @@ void TillySynthProcessor::updateParametersFromAPVTS()
         getBool (ParamIDs::lfo2DestCutoff), getBool (ParamIDs::lfo2DestPitch),
         getBool (ParamIDs::lfo2DestVolume), getBool (ParamIDs::lfo2DestPW));
 
+    // LFO 3
+    voiceManager.updateLFO3 (
+        static_cast<Waveform> (getInt (ParamIDs::lfo3Waveform)),
+        getFloat (ParamIDs::lfo3Rate),
+        getFloat (ParamIDs::lfo3Depth) / 100.0f,
+        getBool (ParamIDs::lfo3DestCutoff), getBool (ParamIDs::lfo3DestPitch),
+        getBool (ParamIDs::lfo3DestVolume), getBool (ParamIDs::lfo3DestPW));
+
     // Mod envelope 1
     voiceManager.updateModEnv1 (
         getFloat (ParamIDs::modEnv1Attack), getFloat (ParamIDs::modEnv1Decay),
@@ -287,6 +302,7 @@ void TillySynthProcessor::updateParametersFromAPVTS()
     ranges.noiseLevel = getFloat (ParamIDs::modRangeNoiseLevel) / 100.0f;
     ranges.lfo1Rate   = getFloat (ParamIDs::modRangeLfo1Rate);
     ranges.lfo2Rate   = getFloat (ParamIDs::modRangeLfo2Rate);
+    ranges.lfo3Rate   = getFloat (ParamIDs::modRangeLfo3Rate);
     voiceManager.updateModDestRanges (ranges);
 
     // Chorus
@@ -312,6 +328,11 @@ void TillySynthProcessor::updateParametersFromAPVTS()
     voiceManager.setPitchBendRange (getInt (ParamIDs::masterPitchBend));
     voiceManager.setMonoLegato (getBool (ParamIDs::masterMonoLegato));
     voiceManager.getDriftEngine().setDriftAmount (getFloat (ParamIDs::masterAnalogDrift) / 100.0f);
+
+    // Output stage
+    outputStage.setMode (static_cast<OutputMode> (getInt (ParamIDs::outputMode)));
+    outputStage.setDrive (getFloat (ParamIDs::outputDrive) / 100.0f);
+    outputStage.setMix (getFloat (ParamIDs::outputMix) / 100.0f);
 }
 
 void TillySynthProcessor::handleMidiMessage (const juce::MidiMessage& msg)

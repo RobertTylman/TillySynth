@@ -13,6 +13,7 @@ enum class ModSource
     None = 0,
     LFO1,
     LFO2,
+    LFO3,
     ModEnv1,
     ModEnv2,
     Velocity,
@@ -34,6 +35,7 @@ enum class ModDest
     NoiseLevel,
     LFO1Rate,
     LFO2Rate,
+    LFO3Rate,
     Count
 };
 
@@ -66,6 +68,7 @@ struct ModulationOutput
     float noiseLevel      = 0.0f;
     float lfo1Rate        = 0.0f;
     float lfo2Rate        = 0.0f;
+    float lfo3Rate        = 0.0f;
 
     float& getDestRef (ModDest d)
     {
@@ -81,6 +84,7 @@ struct ModulationOutput
             case ModDest::NoiseLevel:      return noiseLevel;
             case ModDest::LFO1Rate:        return lfo1Rate;
             case ModDest::LFO2Rate:        return lfo2Rate;
+            case ModDest::LFO3Rate:        return lfo3Rate;
             case ModDest::None:
             case ModDest::Count:
             default:                       return filterCutoff; // unused fallback
@@ -104,6 +108,7 @@ struct ModDestRanges
     float noiseLevel = 1.0f;    // multiplier
     float lfo1Rate   = 10.0f;   // Hz
     float lfo2Rate   = 10.0f;   // Hz
+    float lfo3Rate   = 10.0f;   // Hz
 };
 
 // ============================================================
@@ -115,6 +120,7 @@ struct ModSourceValues
 {
     float lfo1      = 0.0f;   // raw -1..+1
     float lfo2      = 0.0f;
+    float lfo3      = 0.0f;
     float modEnv1   = 0.0f;   // 0..1 (envelope output, pre-amount)
     float modEnv2   = 0.0f;
     float velocity  = 0.0f;   // 0..1
@@ -127,6 +133,7 @@ struct ModSourceValues
         {
             case ModSource::LFO1:       return lfo1;
             case ModSource::LFO2:       return lfo2;
+            case ModSource::LFO3:       return lfo3;
             case ModSource::ModEnv1:    return modEnv1;
             case ModSource::ModEnv2:    return modEnv2;
             case ModSource::Velocity:   return velocity;

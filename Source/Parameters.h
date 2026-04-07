@@ -69,6 +69,15 @@ namespace ParamIDs
     inline constexpr const char* lfo2DestVolume    = "lfo2_dest_volume";
     inline constexpr const char* lfo2DestPW        = "lfo2_dest_pw";
 
+    // LFO 3
+    inline constexpr const char* lfo3Waveform      = "lfo3_waveform";
+    inline constexpr const char* lfo3Rate          = "lfo3_rate";
+    inline constexpr const char* lfo3Depth         = "lfo3_depth";
+    inline constexpr const char* lfo3DestCutoff    = "lfo3_dest_cutoff";
+    inline constexpr const char* lfo3DestPitch     = "lfo3_dest_pitch";
+    inline constexpr const char* lfo3DestVolume    = "lfo3_dest_volume";
+    inline constexpr const char* lfo3DestPW        = "lfo3_dest_pw";
+
     // Mod Envelope 1
     inline constexpr const char* modEnv1Attack         = "modenv1_attack";
     inline constexpr const char* modEnv1Decay          = "modenv1_decay";
@@ -122,6 +131,11 @@ namespace ParamIDs
     inline constexpr const char* masterUnisonDetune = "master_unison_detune";
     inline constexpr const char* sidechainAmount    = "sidechain_amount";
 
+    // Output Stage
+    inline constexpr const char* outputMode        = "output_mode";
+    inline constexpr const char* outputDrive       = "output_drive";
+    inline constexpr const char* outputMix         = "output_mix";
+
     // Modulation Matrix (8 slots)
     inline constexpr const char* modMatrixSource[]  = {
         "modmatrix_1_source", "modmatrix_2_source", "modmatrix_3_source", "modmatrix_4_source",
@@ -147,6 +161,7 @@ namespace ParamIDs
     inline constexpr const char* modRangeNoiseLevel = "modrange_noise_level";
     inline constexpr const char* modRangeLfo1Rate  = "modrange_lfo1_rate";
     inline constexpr const char* modRangeLfo2Rate  = "modrange_lfo2_rate";
+    inline constexpr const char* modRangeLfo3Rate  = "modrange_lfo3_rate";
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();

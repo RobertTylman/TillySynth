@@ -3,6 +3,7 @@
 #include <juce_dsp/juce_dsp.h>
 #include "DSP/VoiceManager.h"
 #include "DSP/ChorusEngine.h"
+#include "DSP/OutputStage.h"
 #include "PresetManager.h"
 #include <atomic>
 #include <array>
@@ -75,10 +76,13 @@ public:
     // LFO state for UI visualisation
     std::atomic<float> lfo1Phase { 0.0f };
     std::atomic<float> lfo2Phase { 0.0f };
+    std::atomic<float> lfo3Phase { 0.0f };
     std::atomic<int> lfo1Waveform { 0 };
     std::atomic<int> lfo2Waveform { 0 };
+    std::atomic<int> lfo3Waveform { 0 };
     std::atomic<float> lfo1Rate { 1.0f };
     std::atomic<float> lfo2Rate { 1.0f };
+    std::atomic<float> lfo3Rate { 1.0f };
 
     // Pitch bend and mod wheel state for UI indicators (normalised -1..1 and 0..1)
     std::atomic<float> pitchBendUI { 0.0f };
@@ -95,6 +99,7 @@ private:
     VoiceManager voiceManager;
     ChorusEngine chorus;
     juce::dsp::Reverb reverb;
+    OutputStage outputStage;
 
     PresetManager presetManager;
     juce::SmoothedValue<float> masterVolume;

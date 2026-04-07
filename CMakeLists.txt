@@ -38,6 +38,7 @@ set(TILLYSYNTH_SHARED_SOURCES
     Source/DSP/SubtractiveFilter.cpp
     Source/DSP/LFO.cpp
     Source/DSP/ChorusEngine.cpp
+    Source/DSP/OutputStage.cpp
     Source/DSP/AnalogueDriftEngine.cpp
     Source/DSP/DriftSensorReader.mm
     Source/DSP/SynthVoice.cpp

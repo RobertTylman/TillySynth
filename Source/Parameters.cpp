@@ -271,15 +271,31 @@ static void addMasterParams (juce::AudioProcessorValueTreeState::ParameterLayout
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f));
 }
 
+static juce::StringArray outputModeChoices { "Off", "Soft Clip", "Console", "Tape" };
+
+static void addOutputStageParams (juce::AudioProcessorValueTreeState::ParameterLayout& layout)
+{
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { "output_mode", 1 }, "Output Mode", outputModeChoices, 0));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "output_drive", 1 }, "Output Drive",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 25.0f));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "output_mix", 1 }, "Output Mix",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 100.0f));
+}
+
 static juce::StringArray modMatrixSourceChoices {
-    "None", "LFO 1", "LFO 2", "Mod Env 1", "Mod Env 2",
+    "None", "LFO 1", "LFO 2", "LFO 3", "Mod Env 1", "Mod Env 2",
     "Velocity", "Aftertouch", "Mod Wheel"
 };
 
 static juce::StringArray modMatrixDestChoices {
     "None", "Filter Cutoff", "Filter Resonance", "Pitch", "Volume",
     "Pulse Width", "Osc 1 Level", "Osc 2 Level", "Noise Level",
-    "LFO 1 Rate", "LFO 2 Rate"
+    "LFO 1 Rate", "LFO 2 Rate", "LFO 3 Rate"
 };
 
 static void addModMatrixParams (juce::AudioProcessorValueTreeState::ParameterLayout& layout)
@@ -352,6 +368,10 @@ static void addModRangeParams (juce::AudioProcessorValueTreeState::ParameterLayo
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { "modrange_lfo2_rate", 1 }, "Mod Range LFO2 Rate",
         juce::NormalisableRange<float> (0.0f, 50.0f, 0.1f), 10.0f));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "modrange_lfo3_rate", 1 }, "Mod Range LFO3 Rate",
+        juce::NormalisableRange<float> (0.0f, 50.0f, 0.1f), 10.0f));
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
@@ -364,6 +384,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
     addFilterParams (layout);
     addLFOParams (layout, "lfo1", "LFO 1");
     addLFOParams (layout, "lfo2", "LFO 2");
+    addLFOParams (layout, "lfo3", "LFO 3");
     addModEnvParams (layout, "modenv1", "Mod Env 1");
     addModEnvParams (layout, "modenv2", "Mod Env 2");
     addModMatrixParams (layout);
@@ -371,6 +392,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
     addChorusParams (layout);
     addReverbParams (layout);
     addMasterParams (layout);
+    addOutputStageParams (layout);
 
     return layout;
 }

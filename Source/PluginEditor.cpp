@@ -579,11 +579,15 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
 
     // Window size button
     sizeButton.setButtonText ("100%");
-    sizeButton.setTooltip ("Cycle window size: 100% / 125% / 150%");
+    sizeButton.setTooltip ("Cycle window size: 50% / 75% / 100% / 125% / 150%");
     sizeButton.onClick = [this]
     {
         int current = getWidth() * 100 / kWindowWidth;
-        int next = (current < 115) ? 125 : (current < 140) ? 150 : 100;
+        int next = (current < 60)  ? 75
+                 : (current < 90)  ? 100
+                 : (current < 115) ? 125
+                 : (current < 140) ? 150
+                 : 50;
         setSize (kWindowWidth * next / 100, kWindowHeight * next / 100);
     };
     addAndMakeVisible (sizeButton);
@@ -736,6 +740,7 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
 
     addLFOControls ("lfo1");
     addLFOControls ("lfo2");
+    addLFOControls ("lfo3");
 
     // --- Mod envelopes ---
     auto addModEnvControls = [&] (const juce::String& prefix)
@@ -756,11 +761,11 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
 
     // --- Mod Matrix ---
     {
-        juce::StringArray sourceItems { "None", "LFO 1", "LFO 2", "Env 1", "Env 2",
+        juce::StringArray sourceItems { "None", "LFO 1", "LFO 2", "LFO 3", "Env 1", "Env 2",
                                         "Vel", "AfterT", "Mod Whl" };
         juce::StringArray destItems { "None", "Cutoff", "Reso", "Pitch", "Volume",
                                       "PW", "Osc1 Lv", "Osc2 Lv", "Noise Lv",
-                                      "LFO1 Rt", "LFO2 Rt" };
+                                      "LFO1 Rt", "LFO2 Rt", "LFO3 Rt" };
 
         for (int i = 0; i < 8; ++i)
         {
@@ -799,6 +804,7 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
         addModRange ("modrange_noise_level", "Noise Lv");
         addModRange ("modrange_lfo1_rate",   "LFO1 Rt");
         addModRange ("modrange_lfo2_rate",   "LFO2 Rt");
+        addModRange ("modrange_lfo3_rate",   "LFO3 Rt");
     }
 
     // --- Chorus ---
@@ -811,6 +817,11 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
     knobs["reverb_damping"] = createKnob ("reverb_damping", "Damp");
     knobs["reverb_mix"]     = createKnob ("reverb_mix", "Mix");
     knobs["reverb_width"]   = createKnob ("reverb_width", "Width");
+
+    // --- Output Stage ---
+    combos["output_mode"]  = createCombo ("output_mode", "Mode", { "Off", "Soft", "Console", "Tape" });
+    knobs["output_drive"]  = createKnob ("output_drive", "Drive");
+    knobs["output_mix"]    = createKnob ("output_mix", "Mix");
 
     // --- Master ---
     knobs["master_volume"]     = createKnob ("master_volume", "Volume");
@@ -926,6 +937,7 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
     };
     addLFOTips ("lfo1");
     addLFOTips ("lfo2");
+    addLFOTips ("lfo3");
 
     auto addModEnvTips = [&] (const juce::String& prefix)
     {
@@ -962,6 +974,7 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
     setKnobTip ("modrange_noise_level", "Max noise level modulation range (% of base level)");
     setKnobTip ("modrange_lfo1_rate", "Max LFO 1 rate modulation range in Hz");
     setKnobTip ("modrange_lfo2_rate", "Max LFO 2 rate modulation range in Hz");
+    setKnobTip ("modrange_lfo3_rate", "Max LFO 3 rate modulation range in Hz");
 
     setComboTip ("chorus_mode", "Chorus mode: Off, I, II, or I+II (Juno-style)");
     setKnobTip ("chorus_rate", "Chorus LFO speed");
@@ -971,6 +984,10 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
     setKnobTip ("reverb_damping", "High-frequency damping in reverb tail");
     setKnobTip ("reverb_mix", "Dry/wet reverb balance");
     setKnobTip ("reverb_width", "Stereo width of reverb");
+
+    setComboTip ("output_mode", "Output character: Soft Clip, Console (mix-bus warmth), or Tape (hysteresis saturation)");
+    setKnobTip ("output_drive", "Saturation intensity — higher values push harder into the chosen curve");
+    setKnobTip ("output_mix", "Dry/wet blend for the output stage");
 
     setKnobTip ("master_volume", "Master output volume");
     setKnobTip ("master_polyphony", "Maximum number of simultaneous voices");
@@ -991,7 +1008,8 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
 
     // Configure resize
     setResizable (true, true);
-    setResizeLimits (1200, 800, 1800, 1200);
+    setResizeLimits (kWindowWidth * 50 / 100, kWindowHeight * 50 / 100,
+                     kWindowWidth * 150 / 100, kWindowHeight * 150 / 100);
     getConstrainer()->setFixedAspectRatio (static_cast<double> (kWindowWidth)
                                          / static_cast<double> (kWindowHeight));
     setSize (kWindowWidth, kWindowHeight);
@@ -1118,8 +1136,8 @@ void TillySynthEditor::paint (juce::Graphics& g)
     else
     {
 
-    int row1H = contentArea.getHeight() * 34 / 100;
-    int row2H = contentArea.getHeight() * 31 / 100;
+    int row1H = contentArea.getHeight() * 31 / 100;
+    int row2H = contentArea.getHeight() * 29 / 100;
 
     // Row 1: OSC1 + OSC2 + Noise
     auto row1 = contentArea.removeFromTop (row1H);
@@ -1132,22 +1150,26 @@ void TillySynthEditor::paint (juce::Graphics& g)
 
     contentArea.removeFromTop (sectionPadding);
 
-    // Row 2: Filter + LFO1 + LFO2
+    // Row 2: Filter + LFO1 + LFO2 + LFO3
     auto row2 = contentArea.removeFromTop (row2H);
     int filterWidth = row2.getWidth() * 42 / 100;
     auto filterArea = row2.removeFromLeft (filterWidth).reduced (halfSectionPadding);
     auto lfosArea = row2;
-    auto lfo1Area = lfosArea.removeFromLeft (lfosArea.getWidth() / 2).reduced (halfSectionPadding);
-    auto lfo2Area = lfosArea.reduced (halfSectionPadding);
+    auto lfo1Area = lfosArea.removeFromLeft (lfosArea.getWidth() / 3).reduced (halfSectionPadding);
+    auto lfo2Area = lfosArea.removeFromLeft (lfosArea.getWidth() / 2).reduced (halfSectionPadding);
+    auto lfo3Area = lfosArea.reduced (halfSectionPadding);
     drawSectionBackground (g, filterArea, "FILTER");
     drawSectionBackground (g, lfo1Area, "LFO 1");
     drawSectionBackground (g, lfo2Area, "LFO 2");
+    drawSectionBackground (g, lfo3Area, "LFO 3");
 
     // LFO waveform visualisation
     auto& apvts = processorRef.getAPVTS();
     auto lfo1VisArea = lfo1Area.withTrimmedTop (lfo1Area.getHeight() - scaleInt (scale, 44))
                                .reduced (scaleInt (scale, 8), scaleInt (scale, 4));
     auto lfo2VisArea = lfo2Area.withTrimmedTop (lfo2Area.getHeight() - scaleInt (scale, 44))
+                               .reduced (scaleInt (scale, 8), scaleInt (scale, 4));
+    auto lfo3VisArea = lfo3Area.withTrimmedTop (lfo3Area.getHeight() - scaleInt (scale, 44))
                                .reduced (scaleInt (scale, 8), scaleInt (scale, 4));
     drawLFOWaveform (g, lfo1VisArea,
                      processorRef.lfo1Waveform.load(),
@@ -1159,6 +1181,11 @@ void TillySynthEditor::paint (juce::Graphics& g)
                      processorRef.lfo2Phase.load(),
                      processorRef.lfo2Rate.load(),
                      apvts.getRawParameterValue ("lfo2_depth")->load() / 100.0f);
+    drawLFOWaveform (g, lfo3VisArea,
+                     processorRef.lfo3Waveform.load(),
+                     processorRef.lfo3Phase.load(),
+                     processorRef.lfo3Rate.load(),
+                     apvts.getRawParameterValue ("lfo3_depth")->load() / 100.0f);
 
     contentArea.removeFromTop (sectionPadding);
 
@@ -1179,23 +1206,29 @@ void TillySynthEditor::paint (juce::Graphics& g)
     drawSectionBackground (g, vuArea, "OUT");
 
     auto effectsContent = effectsArea.withTrimmedTop (sectionTitleHeight);
-    auto chorusLabelArea = effectsContent.removeFromTop (scaleInt (scale, 14))
+    int subGap = scaleInt (scale, 4);
+
+    auto drawDivider = [&] (juce::Rectangle<int>& content)
+    {
+        auto divArea = content.removeFromTop (scaleInt (scale, 8));
+        g.setColour (Colours::panelBorder.withAlpha (0.45f));
+        g.drawLine (static_cast<float> (divArea.getX() + scaleInt (scale, 8)),
+                    static_cast<float> (divArea.getCentreY()),
+                    static_cast<float> (divArea.getRight() - scaleInt (scale, 8)),
+                    static_cast<float> (divArea.getCentreY()),
+                    0.75f);
+    };
+
+    auto chorusLabelArea = effectsContent.removeFromTop (scaleInt (scale, 10))
                                           .withTrimmedLeft (scaleInt (scale, 8));
     drawSubSectionLabel (g, chorusLabelArea, "CHORUS");
-    effectsContent.removeFromTop (smallKnobSize + labelHeight + scaleInt (scale, 8));
+    effectsContent.removeFromTop (smallKnobSize + labelHeight + subGap);
 
-    auto dividerArea = effectsContent.removeFromTop (scaleInt (scale, 12));
-    g.setColour (Colours::panelBorder.withAlpha (0.45f));
-    g.drawLine (static_cast<float> (dividerArea.getX() + scaleInt (scale, 8)),
-                static_cast<float> (dividerArea.getCentreY()),
-                static_cast<float> (dividerArea.getRight() - scaleInt (scale, 8)),
-                static_cast<float> (dividerArea.getCentreY()),
-                0.75f);
+    drawDivider (effectsContent);
 
-    auto reverbLabelArea = effectsContent.removeFromTop (scaleInt (scale, 14))
+    auto reverbLabelArea = effectsContent.removeFromTop (scaleInt (scale, 10))
                                           .withTrimmedLeft (scaleInt (scale, 8));
     drawSubSectionLabel (g, reverbLabelArea, "REVERB");
-
     drawVUMeter (g, vuArea.reduced (scaleInt (scale, 4), scaleInt (scale, 28)));
 
     } // else (not showing mod matrix)
@@ -1296,8 +1329,8 @@ void TillySynthEditor::resized()
     }
     else
     {
-        int row1H = contentArea.getHeight() * 34 / 100;
-        int row2H = contentArea.getHeight() * 31 / 100;
+        int row1H = contentArea.getHeight() * 31 / 100;
+        int row2H = contentArea.getHeight() * 29 / 100;
 
         // Row 1: OSC1 + OSC2 + Noise
         auto row1 = contentArea.removeFromTop (row1H);
@@ -1307,13 +1340,14 @@ void TillySynthEditor::resized()
 
         contentArea.removeFromTop (sectionPadding);
 
-        // Row 2: Filter + LFO1 + LFO2
+        // Row 2: Filter + LFO1 + LFO2 + LFO3
         auto row2 = contentArea.removeFromTop (row2H);
         int filterWidth = row2.getWidth() * 42 / 100;
         layoutFilterSection (row2.removeFromLeft (filterWidth).reduced (sectionPadding));
         auto lfosArea = row2;
-        layoutLFOSection (lfosArea.removeFromLeft (lfosArea.getWidth() / 2).reduced (sectionPadding), "lfo1");
-        layoutLFOSection (lfosArea.reduced (sectionPadding), "lfo2");
+        layoutLFOSection (lfosArea.removeFromLeft (lfosArea.getWidth() / 3).reduced (sectionPadding), "lfo1");
+        layoutLFOSection (lfosArea.removeFromLeft (lfosArea.getWidth() / 2).reduced (sectionPadding), "lfo2");
+        layoutLFOSection (lfosArea.reduced (sectionPadding), "lfo3");
 
         contentArea.removeFromTop (sectionPadding);
 
@@ -1714,31 +1748,34 @@ void TillySynthEditor::layoutModRangesSection (juce::Rectangle<int> area)
     area.removeFromTop (titleH);
     area.removeFromTop (scaleInt (scale, 2));
 
-    // Two rows of 5 knobs each
+    // Two rows: 6 then 5
     const char* rangeIds[] = {
         "modrange_cutoff", "modrange_resonance", "modrange_pitch",
-        "modrange_volume", "modrange_pw",
-        "modrange_osc1_level", "modrange_osc2_level", "modrange_noise_level",
-        "modrange_lfo1_rate", "modrange_lfo2_rate"
+        "modrange_volume", "modrange_pw", "modrange_osc1_level",
+        "modrange_osc2_level", "modrange_noise_level",
+        "modrange_lfo1_rate", "modrange_lfo2_rate", "modrange_lfo3_rate"
     };
+    constexpr int totalRanges = 11;
+    constexpr int row1Count = 6;
+    constexpr int row2Count = 5;
 
     int rowH = area.getHeight() / 2;
-    int knobW = area.getWidth() / 5;
+    int textW = scaleInt (scale, 40);
+    int sliderH = scaleInt (scale, 18);
+    int labelH = scaleInt (scale, 14);
 
-    for (int row = 0; row < 2; ++row)
+    auto layoutRangeRow = [&] (juce::Rectangle<int> rowArea, int startIdx, int count)
     {
-        auto rowArea = area.removeFromTop (rowH);
-        for (int col = 0; col < 5; ++col)
+        int knobW = rowArea.getWidth() / count;
+        for (int col = 0; col < count; ++col)
         {
-            int idx = row * 5 + col;
+            int idx = startIdx + col;
+            if (idx >= totalRanges) break;
             auto cellArea = rowArea.removeFromLeft (knobW).reduced (2, 0);
 
             auto& k = knobs[rangeIds[idx]];
             k.label->setVisible (showingModMatrix);
             k.slider->setSliderStyle (juce::Slider::LinearHorizontal);
-            int textW = scaleInt (scale, 40);
-            int sliderH = scaleInt (scale, 18);
-            int labelH = scaleInt (scale, 14);
 
             auto labelArea = cellArea.removeFromTop (labelH);
             k.label->setBounds (labelArea);
@@ -1749,7 +1786,10 @@ void TillySynthEditor::layoutModRangesSection (juce::Rectangle<int> area)
             k.slider->setTextBoxStyle (juce::Slider::TextBoxRight, false, textW, sliderH);
             k.slider->setBounds (sliderArea);
         }
-    }
+    };
+
+    layoutRangeRow (area.removeFromTop (rowH), 0, row1Count);
+    layoutRangeRow (area.removeFromTop (rowH), row1Count, row2Count);
 }
 
 void TillySynthEditor::drawModMatrixPage (juce::Graphics& g, juce::Rectangle<int> area)
@@ -1865,7 +1905,7 @@ void TillySynthEditor::setModMatrixVisible (bool visible)
         "modrange_cutoff", "modrange_resonance", "modrange_pitch",
         "modrange_volume", "modrange_pw",
         "modrange_osc1_level", "modrange_osc2_level", "modrange_noise_level",
-        "modrange_lfo1_rate", "modrange_lfo2_rate"
+        "modrange_lfo1_rate", "modrange_lfo2_rate", "modrange_lfo3_rate"
     };
     for (auto* id : rangeIds)
     {
@@ -1944,13 +1984,14 @@ void TillySynthEditor::layoutEffectsSection (juce::Rectangle<int> area)
         }
     };
 
+    int subGap = scaleInt (scale, 4);
+
     // --- Chorus sub-section ---
-    area.removeFromTop (scaleInt (scale, 14));
+    area.removeFromTop (scaleInt (scale, 10));
 
     auto chorusRow = area.removeFromTop (knobH);
     int chorusColW = area.getWidth() / 3;
 
-    // Mode combo
     auto modeCol = chorusRow.removeFromLeft (chorusColW);
     if (combos.count ("chorus_mode"))
     {
@@ -1962,12 +2003,10 @@ void TillySynthEditor::layoutEffectsSection (juce::Rectangle<int> area)
     placeKnob ("chorus_rate", chorusRow, chorusColW);
     placeKnob ("chorus_depth", chorusRow, chorusColW);
 
-    area.removeFromTop (scaleInt (scale, 8));
-    area.removeFromTop (scaleInt (scale, 12));
+    area.removeFromTop (subGap);
 
     // --- Reverb sub-section ---
-    area.removeFromTop (scaleInt (scale, 14));
-    area.removeFromTop (scaleInt (scale, 6));
+    area.removeFromTop (scaleInt (scale, 10));
 
     int reverbColW = area.getWidth() / 4;
     auto reverbRow1 = area.removeFromTop (knobH);
@@ -2016,14 +2055,33 @@ void TillySynthEditor::layoutMasterSection (juce::Rectangle<int> area)
 
     area.removeFromTop (scaleInt (scale, 2));
 
-    // Row 3: Sidechain + Legato toggle
+    // Row 3: Sidechain + Mono/Legato toggle (compact)
     auto row3 = area.removeFromTop (knobH);
     placeKnob ("sidechain_amount", row3, colW);
 
-    auto toggleArea = row3.removeFromLeft (colW * 2);
     if (toggles.count ("master_mono_legato"))
+    {
+        auto toggleCol = row3.removeFromLeft (colW * 2);
+        int tH = juce::jmin (toggleHeight, scaleInt (scale, 18));
         toggles["master_mono_legato"].button->setBounds (
-            toggleArea.reduced (scaleInt (scale, 4), (knobH - toggleHeight) / 2));
+            toggleCol.reduced (scaleInt (scale, 4), (knobH - tH) / 2));
+    }
+
+    area.removeFromTop (scaleInt (scale, 2));
+
+    // Row 4: Output Stage (Mode + Drive + Mix)
+    auto row4 = area.removeFromTop (knobH);
+
+    auto outputModeCol = row4.removeFromLeft (colW);
+    if (combos.count ("output_mode"))
+    {
+        combos["output_mode"].combo->setBounds (outputModeCol.removeFromTop (smallKnobSize)
+                                                    .reduced (scaleInt (scale, 4), scaleInt (scale, 8)));
+        combos["output_mode"].label->setBounds (outputModeCol.removeFromTop (labelHeight));
+    }
+
+    placeKnob ("output_drive", row4, colW);
+    placeKnob ("output_mix", row4, colW);
 }
 
 // ============================================================
@@ -2227,7 +2285,7 @@ void TillySynthEditor::drawDriftScope (juce::Graphics& g, juce::Rectangle<int> b
     float cpu = drift.getCpuLoad();
     float thermal = drift.getThermalPressure();
 
-    float readoutX = static_cast<float> (bounds.getRight()) - sensorWidth - 4.0f;
+    float readoutX = static_cast<float> (bounds.getRight()) - sensorWidth - 10.0f;
     float readoutY = static_cast<float> (bounds.getY()) + 4.0f;
 
     g.setFont (juce::Font (juce::FontOptions (9.0f)));

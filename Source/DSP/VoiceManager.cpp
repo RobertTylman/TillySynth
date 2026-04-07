@@ -15,6 +15,7 @@ void VoiceManager::prepare (double sampleRate, int samplesPerBlock)
 
     lfo1.prepare (sampleRate);
     lfo2.prepare (sampleRate);
+    lfo3.prepare (sampleRate);
 }
 
 void VoiceManager::reset()
@@ -24,6 +25,7 @@ void VoiceManager::reset()
 
     lfo1.reset();
     lfo2.reset();
+    lfo3.reset();
     noteOrderCounter = 0;
     sustainPedalDown = false;
     sustainedNotes.fill (false);
@@ -163,18 +165,20 @@ void VoiceManager::renderNextSample (float& leftOut, float& rightOut)
 {
     auto lfo1Out = lfo1.processSample();
     auto lfo2Out = lfo2.processSample();
+    auto lfo3Out = lfo3.processSample();
 
-    // Combine both LFOs (additive) + mod wheel vibrato via LFO1's raw waveform
-    float totalFilterMod = lfo1Out.cutoffMod + lfo2Out.cutoffMod;
+    // Combine all LFOs (additive) + mod wheel vibrato via LFO1's raw waveform
+    float totalFilterMod = lfo1Out.cutoffMod + lfo2Out.cutoffMod + lfo3Out.cutoffMod;
     float modWheelVibrato = lfo1.getRawSample() * modWheelValue;
-    float totalPitchMod  = lfo1Out.pitchMod  + lfo2Out.pitchMod + modWheelVibrato;
-    float totalVolumeMod = lfo1Out.volumeMod + lfo2Out.volumeMod;
-    float totalPWMod     = lfo1Out.pwMod     + lfo2Out.pwMod;
+    float totalPitchMod  = lfo1Out.pitchMod  + lfo2Out.pitchMod  + lfo3Out.pitchMod + modWheelVibrato;
+    float totalVolumeMod = lfo1Out.volumeMod + lfo2Out.volumeMod + lfo3Out.volumeMod;
+    float totalPWMod     = lfo1Out.pwMod     + lfo2Out.pwMod     + lfo3Out.pwMod;
 
     // Build global source values for the mod matrix
     ModSourceValues globalSources;
     globalSources.lfo1       = lfo1.getRawSample();
     globalSources.lfo2       = lfo2.getRawSample();
+    globalSources.lfo3       = lfo3.getRawSample();
     globalSources.modWheel   = modWheelValue;
     globalSources.aftertouch = aftertouchValue;
 
@@ -190,6 +194,8 @@ void VoiceManager::renderNextSample (float& leftOut, float& rightOut)
         lfo1.setRate (juce::jmax (0.01f, lfo1BaseRate + lfoRateMod.lfo1Rate * modDestRanges.lfo1Rate));
     if (lfoRateMod.lfo2Rate != 0.0f)
         lfo2.setRate (juce::jmax (0.01f, lfo2BaseRate + lfoRateMod.lfo2Rate * modDestRanges.lfo2Rate));
+    if (lfoRateMod.lfo3Rate != 0.0f)
+        lfo3.setRate (juce::jmax (0.01f, lfo3BaseRate + lfoRateMod.lfo3Rate * modDestRanges.lfo3Rate));
 
     float mono = 0.0f;
 
@@ -300,6 +306,16 @@ void VoiceManager::updateLFO2 (Waveform wf, float rate, float depth,
     lfo2.setRate (rate);
     lfo2.setDepth (depth);
     lfo2.setDestinations (destCutoff, destPitch, destVolume, destPW);
+}
+
+void VoiceManager::updateLFO3 (Waveform wf, float rate, float depth,
+                                bool destCutoff, bool destPitch, bool destVolume, bool destPW)
+{
+    lfo3BaseRate = rate;
+    lfo3.setWaveform (wf);
+    lfo3.setRate (rate);
+    lfo3.setDepth (depth);
+    lfo3.setDestinations (destCutoff, destPitch, destVolume, destPW);
 }
 
 void VoiceManager::updateModEnv1 (float attack, float decay, float sustain, float release, float amount,
