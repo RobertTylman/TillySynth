@@ -339,12 +339,12 @@ void TillySynthProcessor::handleMidiMessage (const juce::MidiMessage& msg)
 {
     if (msg.isNoteOn())
     {
-        int note = juce::jlimit (0, 127, msg.getNoteNumber() + transposeSemitones);
+        int note = juce::jlimit (0, 127, msg.getNoteNumber() + transposeSemitones + octaveShift * 12);
         voiceManager.handleNoteOn (note, msg.getFloatVelocity());
     }
     else if (msg.isNoteOff())
     {
-        int note = juce::jlimit (0, 127, msg.getNoteNumber() + transposeSemitones);
+        int note = juce::jlimit (0, 127, msg.getNoteNumber() + transposeSemitones + octaveShift * 12);
         voiceManager.handleNoteOff (note);
     }
     else if (msg.isPitchWheel())

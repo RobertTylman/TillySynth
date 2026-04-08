@@ -196,6 +196,11 @@ private:
     juce::Label transposeLabel;
     juce::Label transposeTitleLabel;
 
+    // Octave controls
+    juce::TextButton octaveDown, octaveUp;
+    juce::Label octaveLabel;
+    juce::Label octaveTitleLabel;
+
     // Pitch/mod wheel components
     WheelComponent pitchWheel { true, "PITCH" };
     WheelComponent modWheel { false, "MOD" };

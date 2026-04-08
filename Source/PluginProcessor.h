@@ -49,6 +49,9 @@ public:
 
     void setTranspose (int semitones) { transposeSemitones = juce::jlimit (-12, 12, semitones); }
     int getTranspose() const { return transposeSemitones; }
+
+    void setOctaveShift (int octaves) { octaveShift = juce::jlimit (-3, 3, octaves); }
+    int getOctaveShift() const { return octaveShift; }
     PresetManager& getPresetManager() { return presetManager; }
     const PresetManager& getPresetManager() const { return presetManager; }
 
@@ -104,6 +107,7 @@ private:
     PresetManager presetManager;
     juce::SmoothedValue<float> masterVolume;
     int transposeSemitones = 0;
+    int octaveShift = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TillySynthProcessor)
 };

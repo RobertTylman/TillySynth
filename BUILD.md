@@ -76,7 +76,7 @@ With `COPY_PLUGIN_AFTER_BUILD` enabled (default), plugins are also installed to:
 ## Running the Standalone
 
 ```bash
-open build/TillySynth_artefacts/Release/Standalone/TillySynth.app    # macOS
+cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release --target TillySynth_Standalone && open build/TillySynth_artefacts/Release/Standalone/TillySynth.app    # macOS
 ```
 
 Or on Windows, run the `.exe` directly from the Standalone output folder.
