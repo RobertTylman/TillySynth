@@ -9,7 +9,7 @@
 </div>
 
 <div align="center">
-  <img src="docs/assets/newscreenshot.png" width="800" alt="TillySynth Interface">
+  <img src="docs/assets/april8screenshot.png" width="800" alt="TillySynth Interface">
 </div>
 
 ---
@@ -22,32 +22,36 @@ Unlike static digital recreations, TillySynth feels alive. At its core is a uniq
 
 ### 🎹 Living Oscillators
 *   **16-Voice Polyphony**: Authentic voice-stacking with adaptive oldest-note-first stealing.
-*   **Dual-Layer Synthesis**: Two independent oscillators per voice with Sine, Sawtooth, Square (PWM), and Triangle waves.
+*   **Dual-Layer Synthesis**: Two independent main oscillators per voice with Sine, Sawtooth, Square (PWM), and Triangle waves.
+*   **Noise Oscillator**: Dedicated noise source with White, Pink, and Sample & Hold modes.
 *   **Unison Power**: Stack up to 7 voices per oscillator with adjustable detune spread and stereo blend.
 *   **Analogue Detune**: A dedicated engine mapping CPU thermal data to ±8 cents of pitch drift and ±4 Hz of filter cutoff variation.
 
 ### 🎛️ Dynamic Sculpting
-*   **State-Variable Filter**: Low-pass, High-pass, Band-pass, and Notch modes with 12dB or 24dB slopes.
-*   **Organic Modulation**: Dual independent LFOs targeting pitch, filter, volume, and pulse width.
-*   **Precision Envelopes**: Dedicated ADSR envelopes for both Amplitude and Filter sections.
-*   **Keyboard Tracking**: Filter cutoff scales with MIDI note and velocity for expressive, dynamic performances.
+*   **Advanced Filter Models**: Modern, Vintage, and Ladder-style filters in Low-pass, High-pass, Band-pass, and Notch modes.
+*   **Modulation Matrix**: 8-slot matrix for assigning LFOs, Envelopes, and MIDI controllers to dozens of destinations.
+*   **Triple LFOs**: Three independent LFOs with multiple waveforms targeting pitch, filter, volume, and pulse width.
+*   **Quad Envelopes**: Dedicated ADSR envelopes for Amplitude (x2), Filter, and two assignable Modulation envelopes.
+*   **Sidechain Capability**: External sidechain input support for rhythmic ducking and pulsing effects.
 
-### 🌈 Vintage Effects
-*   **BBD-Style Chorus**: A meticulously modeled Bucket Brigade Device chorus with classic I, II, and I+II modes. Captures the iconic "lushness" with subtle wow and flutter.
+### 🌈 Vintage Effects & Output
+*   **BBD-Style Chorus**: A meticulously modeled Bucket Brigade Device chorus with classic I, II, and I+II modes.
+*   **Lush Reverb**: Integrated algorithmic reverb with room size, damping, and stereo width controls.
+*   **Output Character**: Selectable "Vintage" and "Console" saturation modes for extra warmth and weight.
 *   **Glide / Portamento**: Smooth pitch transitions for both monophonic and polyphonic patches.
 
 ### 🧪 Preset Curation Workflow
 *   **Preset Review App**: A separate desktop app that loads every preset, plays a short audition hook, and lets you rate sounds from 1-5 stars.
-*   **Inline Notes & Ratings**: Review notes are saved per preset so you can leave comments like "great attack" or "too harsh up top" and revisit them later.
-*   **Variant Generation**: Generate new user presets from promising sounds, keep the winners, and delete weak candidates individually or in bulk.
-*   **Visible Scoring Pass**: The review UI shows the full preset list with ratings and note previews, making iterative pruning much faster than bouncing between plugin windows and CSVs.
+*   **Inline Notes & Ratings**: Review notes are saved per preset so you can leave comments and revisit them later.
+*   **Variant Generation**: Generate new user presets from promising sounds, keep the winners, and delete weak candidates.
+*   **Visible Scoring Pass**: The review UI shows the full preset list with ratings, making iterative pruning much faster.
 
 ## 🛠️ Technical Stack
 
 *   **Framework**: [JUCE 8.0.4](https://juce.com/)
 *   **Language**: Modern C++17
 *   **Build System**: CMake with [CPM.cmake](https://github.com/cpm-cmake/CPM.cmake)
-*   **Tools**: JUCE plugin targets plus a standalone preset-review desktop app
+*   **DSP Modules**: Custom voice manager with SIMD-ready oscillators and optimized filter models.
 *   **Platform Integration**: 
     *   **macOS**: IOKit & CoreMotion for hardware telemetry.
     *   **Windows**: WMI-based thermal polling.
@@ -57,7 +61,7 @@ Unlike static digital recreations, TillySynth feels alive. At its core is a uniq
 
 TillySynth prioritizes **Visual and Sonic Character** over clinical precision.
 
-*   **Custom UI**: A fully original, Juno-inspired horizontal layout utilizing a custom `LookAndFeel`.
+*   **Custom UI with Oscilloscope**: A fully original, Juno-inspired horizontal layout featuring a real-time signal scope for visual feedback.
 *   **Panel Wear**: Every plugin instance renders unique, randomized "surface wear" and "knob scuffs," emphasizing that no two units are the same.
 *   **Input-Focused**: No generic preset browser—TillySynth encourages the lost art of sound design, making every patch a personal creation.
 
@@ -93,16 +97,6 @@ open build/TillySynth_artefacts/Release/Standalone/TillySynth.app
 ```bash
 open 'build/TillyPresetReview_artefacts/Release/TillySynth Preset Review.app'
 ```
-
-Use the review app to:
-*   audition presets with built-in hooks
-*   rate them 1-5 stars
-*   leave notes for each preset
-*   click any preset in the list to review it again
-*   generate new user variants from strong presets
-*   delete weak generated/user presets individually or in batches
-
-Review ratings and notes are saved in your user application data folder, while generated presets are written to the normal TillySynth user preset directory.
 
 ---
 
