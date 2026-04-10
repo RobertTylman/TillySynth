@@ -19,7 +19,152 @@
         <section id="introduction">
             <p>The goal of chorus is to make a duplicated, detuned signal. In the digital age, this is a trivial operation. However, performing this in the past was much more involved, and understanding why it works requires a bit of psychoacoustics.</p>
             
-            <div class="placeholder" data-type="GIF: Chorus Visualized"></div>
+            <div style="background: var(--code-bg); padding: 1.5rem; border-radius: 12px; margin: 2rem 0; width: 100%; box-sizing: border-box; text-align: center;">
+                <canvas id="heroCanvas" width="800" height="280" style="width: 100%; max-width: 700px; height: auto; border-radius: 8px; background: #ffffff; border: 1px solid var(--border-color); display: block; margin: 0 auto; box-shadow: 0 4px 6px rgba(0,0,0,0.02);"></canvas>
+                <figcaption style="margin-top: 1rem; font-size: 0.9rem; color: var(--secondary-text); text-align: center; line-height: 1.6;">
+                    <strong style="color: var(--text-color);">Chorus Visualized</strong>: A mono input is duplicated, delayed, and slightly detuned. When the original and modulated copy are summed, the interference creates a richer, beating output.
+                </figcaption>
+            </div>
+
+            <script>
+            (function() {
+                const canvas = document.getElementById('heroCanvas');
+                const ctx = canvas.getContext('2d');
+                const W = canvas.width;
+                const H = canvas.height;
+
+                let elapsed = 0;
+                let lastTs = null;
+
+                function draw(ts) {
+                    if (lastTs === null) lastTs = ts;
+                    const dt = Math.min((ts - lastTs) / 1000, 0.05);
+                    lastTs = ts;
+                    elapsed += dt;
+
+                    ctx.clearRect(0, 0, W, H);
+
+                    const scroll = elapsed * 50;
+                    const padL = 14;
+                    const padR = 14;
+                    const colW = (W - padL - padR - 40) / 3;
+                    const col1X = padL;
+                    const col2X = padL + colW + 20;
+                    const col3X = padL + 2 * (colW + 20);
+                    const waveTop = 36;
+                    const waveH = H - waveTop - 20;
+                    const midY = waveTop + waveH / 2;
+                    const amp = waveH / 2 - 10;
+                    const freq = 0.018;
+
+                    // LFO for modulation
+                    const lfoRate = 0.4;
+                    const lfoPhase = ((elapsed * lfoRate) % 1 + 1) % 1;
+                    const lfo = lfoPhase < 0.5 ? 1.0 - 4.0 * lfoPhase : -1.0 + 4.0 * (lfoPhase - 0.5);
+
+                    const detune = lfo * 0.002;
+                    const delayOff = lfo * 16;
+
+                    // Section labels
+                    ctx.font = 'bold 12px "Outfit", sans-serif';
+                    ctx.textAlign = 'center';
+
+                    ctx.fillStyle = '#2563eb';
+                    ctx.fillText('Input (Dry)', col1X + colW / 2, waveTop - 14);
+
+                    ctx.fillStyle = '#ef4444';
+                    ctx.fillText('Delayed + Detuned (Wet)', col2X + colW / 2, waveTop - 14);
+
+                    ctx.fillStyle = '#8b5cf6';
+                    ctx.fillText('Combined Output', col3X + colW / 2, waveTop - 14);
+
+                    // Zero lines
+                    ctx.strokeStyle = '#f1f5f9';
+                    ctx.lineWidth = 1;
+                    for (const cx of [col1X, col2X, col3X]) {
+                        ctx.beginPath();
+                        ctx.moveTo(cx, midY);
+                        ctx.lineTo(cx + colW, midY);
+                        ctx.stroke();
+                    }
+
+                    // Column 1: Dry signal
+                    ctx.strokeStyle = '#2563eb';
+                    ctx.lineWidth = 2.5;
+                    ctx.beginPath();
+                    for (let i = 0; i <= colW; i++) {
+                        const x = col1X + i;
+                        const y = midY + Math.sin((i + scroll) * freq * Math.PI * 2) * amp * 0.65;
+                        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                    }
+                    ctx.stroke();
+
+                    // Column 2: Wet signal (delayed + detuned)
+                    ctx.strokeStyle = '#ef4444';
+                    ctx.lineWidth = 2.5;
+                    ctx.beginPath();
+                    for (let i = 0; i <= colW; i++) {
+                        const x = col2X + i;
+                        const y = midY + Math.sin((i - delayOff + scroll) * (freq + detune) * Math.PI * 2) * amp * 0.65;
+                        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                    }
+                    ctx.stroke();
+
+                    // Dry ghost in col 2
+                    ctx.strokeStyle = '#2563eb';
+                    ctx.lineWidth = 1.5;
+                    ctx.globalAlpha = 0.2;
+                    ctx.beginPath();
+                    for (let i = 0; i <= colW; i++) {
+                        const x = col2X + i;
+                        const y = midY + Math.sin((i + scroll) * freq * Math.PI * 2) * amp * 0.65;
+                        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                    }
+                    ctx.stroke();
+                    ctx.globalAlpha = 1.0;
+
+                    // Column 3: Combined
+                    ctx.strokeStyle = '#8b5cf6';
+                    ctx.lineWidth = 2.5;
+                    ctx.beginPath();
+                    for (let i = 0; i <= colW; i++) {
+                        const x = col3X + i;
+                        const dry = Math.sin((i + scroll) * freq * Math.PI * 2) * amp * 0.65;
+                        const wet = Math.sin((i - delayOff + scroll) * (freq + detune) * Math.PI * 2) * amp * 0.65;
+                        const y = midY + (dry + wet) * 0.55;
+                        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                    }
+                    ctx.stroke();
+
+                    // Arrows between columns
+                    ctx.fillStyle = '#94a3b8';
+                    ctx.strokeStyle = '#94a3b8';
+                    ctx.lineWidth = 1.5;
+                    for (const ax of [col1X + colW + 4, col2X + colW + 4]) {
+                        const ay = midY;
+                        ctx.beginPath();
+                        ctx.moveTo(ax, ay);
+                        ctx.lineTo(ax + 12, ay);
+                        ctx.stroke();
+                        ctx.beginPath();
+                        ctx.moveTo(ax + 12, ay);
+                        ctx.lineTo(ax + 7, ay - 4);
+                        ctx.lineTo(ax + 7, ay + 4);
+                        ctx.fill();
+                    }
+
+                    // "+" label between col2 and col3
+                    ctx.font = 'bold 13px "Outfit", sans-serif';
+                    ctx.fillStyle = '#94a3b8';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('+', col2X + colW + 10, midY - 12);
+
+                    requestAnimationFrame(draw);
+                }
+
+                requestAnimationFrame(draw);
+            })();
+            </script>
 
             <h3>The psychoacoustic illusion</h3>
             <p>Our ears are incredibly sensitive to small differences in pitch and timing. When two nearly identical signals are played together with slight detuning, they interfere with each other, producing slow fluctuations in amplitude known as <strong>beating</strong>. Instead of hearing two separate sounds, the brain fuses them into a single, richer source. The result feels wider, thicker, and more “alive” because it mimics the natural inconsistencies of real performers.</p>
