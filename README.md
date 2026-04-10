@@ -36,6 +36,7 @@ Unlike static digital recreations, TillySynth feels alive. At its core is a uniq
 
 ### 🌈 Vintage Effects & Output
 *   **BBD-Style Chorus**: A meticulously modeled Bucket Brigade Device chorus with classic I, II, and I+II modes.
+    *   *Deep Dive:* [Understanding the Juno-60 Chorus](CHORUS/article/index.html) (`open CHORUS/article/index.html`)
 *   **Lush Reverb**: Integrated algorithmic reverb with room size, damping, and stereo width controls.
 *   **Output Character**: Selectable "Vintage" and "Console" saturation modes for extra warmth and weight.
 *   **Glide / Portamento**: Smooth pitch transitions for both monophonic and polyphonic patches.

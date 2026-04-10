@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding the Juno-60 Chorus | TillySynth</title>
+    <meta name="description" content="A deep dive into the classic Roland Juno-60 Chorus effect, its history, mathematics, and digital implementation.">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body);"></script>
+</head>
+<body>
+    <article>
+        <header>
+            <h1>Understanding the Juno-60 Chorus</h1>
+        </header>
+
+        <section id="introduction">
+            <p>The goal of chorus is to make a duplicated, detuned signal. In the digital age, this is a trivial operation. However, performing this in the past was much more involved, and understanding why it works requires a bit of psychoacoustics.</p>
+            
+            <div class="placeholder" data-type="GIF: Chorus Visualized"></div>
+
+            <h3>The psychoacoustic illusion</h3>
+            <p>Our ears are incredibly sensitive to small differences in pitch and timing. When two nearly identical signals are played together with slight detuning, they interfere with each other, producing slow fluctuations in amplitude known as <strong>beating</strong>. Instead of hearing two separate sounds, the brain fuses them into a single, richer source. The result feels wider, thicker, and more “alive” because it mimics the natural inconsistencies of real performers.</p>
+
+            <h3>The three core ingredients</h3>
+            <p>At its heart, every chorus effect is balancing three variables:</p>
+            <div style="display: flex; flex-direction: column; gap: 1.5rem; margin: 2rem 0;">
+
+                <!-- Pitch Deviation -->
+                <div style="background: var(--code-bg); padding: 1.5rem; border-radius: 12px; width: 100%; box-sizing: border-box;">
+                    <div style="display: flex; align-items: flex-start; gap: 1.5rem; flex-wrap: wrap;">
+                        <canvas id="pitchCanvas" width="400" height="160" style="width: 100%; max-width: 360px; height: auto; border-radius: 8px; background: #ffffff; border: 1px solid var(--border-color); flex-shrink: 0; box-shadow: 0 4px 6px rgba(0,0,0,0.02);"></canvas>
+                        <div style="flex: 1; min-width: 200px;">
+                            <strong style="color: var(--text-color); font-size: 1rem;">Pitch Deviation</strong>
+                            <p style="font-size: 0.9rem; color: var(--secondary-text); margin-top: 0.5rem; line-height: 1.6;">A slight detune, often modulated over time, creates the sense of multiple sources rather than a static duplicate.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Time Offset -->
+                <div style="background: var(--code-bg); padding: 1.5rem; border-radius: 12px; width: 100%; box-sizing: border-box;">
+                    <div style="display: flex; align-items: flex-start; gap: 1.5rem; flex-wrap: wrap;">
+                        <canvas id="timeCanvas" width="400" height="160" style="width: 100%; max-width: 360px; height: auto; border-radius: 8px; background: #ffffff; border: 1px solid var(--border-color); flex-shrink: 0; box-shadow: 0 4px 6px rgba(0,0,0,0.02);"></canvas>
+                        <div style="flex: 1; min-width: 200px;">
+                            <strong style="color: var(--text-color); font-size: 1rem;">Time Offset</strong>
+                            <p style="font-size: 0.9rem; color: var(--secondary-text); margin-top: 0.5rem; line-height: 1.6;">A short delay, usually in the range of a few milliseconds, separates the signals just enough to avoid perfect overlap.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mix Ratio -->
+                <div style="background: var(--code-bg); padding: 1.5rem; border-radius: 12px; width: 100%; box-sizing: border-box;">
+                    <div style="display: flex; align-items: flex-start; gap: 1.5rem; flex-wrap: wrap;">
+                        <canvas id="mixCanvas" width="400" height="160" style="width: 100%; max-width: 360px; height: auto; border-radius: 8px; background: #ffffff; border: 1px solid var(--border-color); flex-shrink: 0; box-shadow: 0 4px 6px rgba(0,0,0,0.02);"></canvas>
+                        <div style="flex: 1; min-width: 200px;">
+                            <strong style="color: var(--text-color); font-size: 1rem;">Mix Ratio</strong>
+                            <p style="font-size: 0.9rem; color: var(--secondary-text); margin-top: 0.5rem; line-height: 1.6;">Blending the dry and processed signals determines how subtle or exaggerated the effect feels.</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <script>
+            (function() {
+                // Shared delta-time state
+                let lastTs = null;
+                const speed = 50; // pixels per second (base scroll rate)
+
+                let pTime = 0, tTime = 0, mTime = 0;
+
+                function tick(ts) {
+                    if (lastTs === null) lastTs = ts;
+                    const dt = Math.min((ts - lastTs) / 1000, 0.05);
+                    lastTs = ts;
+                    const advance = speed * dt;
+
+                    pTime += advance;
+                    tTime += advance;
+                    mTime += advance;
+
+                    drawPitch();
+                    drawTime();
+                    drawMix();
+                    requestAnimationFrame(tick);
+                }
+
+                // --- Pitch Deviation Animation ---
+                const pc = document.getElementById('pitchCanvas');
+                const pctx = pc.getContext('2d');
+
+                function drawPitch() {
+                    pctx.clearRect(0, 0, pc.width, pc.height);
+                    const midY = pc.height / 2;
+                    const amp = 50;
+                    const freq = 0.012;
+                    const lfoRate = 0.002;
+                    const detuneAmount = 0.3;
+
+                    const detune = Math.sin(pTime * lfoRate * Math.PI * 2) * detuneAmount;
+
+                    pctx.strokeStyle = '#2563eb';
+                    pctx.lineWidth = 2.5;
+                    pctx.beginPath();
+                    for (let x = 0; x < pc.width; x++) {
+                        const y = midY + Math.sin((x + pTime) * freq * Math.PI * 2) * amp * 0.7;
+                        x === 0 ? pctx.moveTo(x, y) : pctx.lineTo(x, y);
+                    }
+                    pctx.stroke();
+
+                    pctx.strokeStyle = '#ef4444';
+                    pctx.lineWidth = 2;
+                    pctx.globalAlpha = 0.7;
+                    pctx.beginPath();
+                    for (let x = 0; x < pc.width; x++) {
+                        const y = midY + Math.sin((x + pTime) * (freq + detune * 0.003) * Math.PI * 2) * amp * 0.7;
+                        x === 0 ? pctx.moveTo(x, y) : pctx.lineTo(x, y);
+                    }
+                    pctx.stroke();
+                    pctx.globalAlpha = 1.0;
+
+                    pctx.font = '11px "Outfit", sans-serif';
+                    pctx.fillStyle = '#2563eb';
+                    pctx.fillText('Dry', 10, 16);
+                    pctx.fillStyle = '#ef4444';
+                    pctx.fillText('Detuned', 50, 16);
+                }
+
+                // --- Time Offset Animation ---
+                const tc = document.getElementById('timeCanvas');
+                const tctx = tc.getContext('2d');
+
+                function drawTime() {
+                    tctx.clearRect(0, 0, tc.width, tc.height);
+                    const midY = tc.height / 2;
+                    const amp = 50;
+                    const freq = 0.015;
+                    const delayPx = 28;
+
+                    tctx.strokeStyle = '#2563eb';
+                    tctx.lineWidth = 2.5;
+                    tctx.beginPath();
+                    for (let x = 0; x < tc.width; x++) {
+                        const y = midY + Math.sin((x + tTime) * freq * Math.PI * 2) * amp * 0.7;
+                        x === 0 ? tctx.moveTo(x, y) : tctx.lineTo(x, y);
+                    }
+                    tctx.stroke();
+
+                    tctx.strokeStyle = '#f97316';
+                    tctx.lineWidth = 2;
+                    tctx.globalAlpha = 0.7;
+                    tctx.beginPath();
+                    for (let x = 0; x < tc.width; x++) {
+                        const y = midY + Math.sin((x - delayPx + tTime) * freq * Math.PI * 2) * amp * 0.7;
+                        x === 0 ? tctx.moveTo(x, y) : tctx.lineTo(x, y);
+                    }
+                    tctx.stroke();
+                    tctx.globalAlpha = 1.0;
+
+                    tctx.strokeStyle = '#94a3b8';
+                    tctx.lineWidth = 1;
+                    tctx.setLineDash([4, 3]);
+                    const bx = tc.width * 0.6;
+                    const by = midY + amp + 12;
+                    tctx.beginPath();
+                    tctx.moveTo(bx, by);
+                    tctx.lineTo(bx, by + 8);
+                    tctx.moveTo(bx + delayPx, by);
+                    tctx.lineTo(bx + delayPx, by + 8);
+                    tctx.moveTo(bx, by + 4);
+                    tctx.lineTo(bx + delayPx, by + 4);
+                    tctx.stroke();
+                    tctx.setLineDash([]);
+
+                    tctx.font = '10px "Outfit", sans-serif';
+                    tctx.fillStyle = '#94a3b8';
+                    tctx.textAlign = 'center';
+                    tctx.fillText('~15ms', bx + delayPx / 2, by + 16);
+                    tctx.textAlign = 'left';
+
+                    tctx.font = '11px "Outfit", sans-serif';
+                    tctx.fillStyle = '#2563eb';
+                    tctx.fillText('Dry', 10, 16);
+                    tctx.fillStyle = '#f97316';
+                    tctx.fillText('Delayed', 50, 16);
+                }
+
+                // --- Mix Ratio Animation ---
+                const mc = document.getElementById('mixCanvas');
+                const mctx = mc.getContext('2d');
+
+                function drawMix() {
+                    mctx.clearRect(0, 0, mc.width, mc.height);
+                    const midY = mc.height / 2;
+                    const amp = 50;
+                    const freq = 0.012;
+                    const delayPx = 22;
+                    const detune = 0.0012;
+
+                    mctx.strokeStyle = '#2563eb';
+                    mctx.lineWidth = 2;
+                    mctx.globalAlpha = 0.5;
+                    mctx.beginPath();
+                    for (let x = 0; x < mc.width; x++) {
+                        const y = midY + Math.sin((x + mTime) * freq * Math.PI * 2) * amp * 0.7;
+                        x === 0 ? mctx.moveTo(x, y) : mctx.lineTo(x, y);
+                    }
+                    mctx.stroke();
+
+                    mctx.strokeStyle = '#ef4444';
+                    mctx.globalAlpha = 0.5;
+                    mctx.beginPath();
+                    for (let x = 0; x < mc.width; x++) {
+                        const y = midY + Math.sin((x - delayPx + mTime) * (freq + detune) * Math.PI * 2) * amp * 0.7;
+                        x === 0 ? mctx.moveTo(x, y) : mctx.lineTo(x, y);
+                    }
+                    mctx.stroke();
+                    mctx.globalAlpha = 1.0;
+
+                    mctx.strokeStyle = '#8b5cf6';
+                    mctx.lineWidth = 2.5;
+                    mctx.beginPath();
+                    for (let x = 0; x < mc.width; x++) {
+                        const dry = Math.sin((x + mTime) * freq * Math.PI * 2) * amp * 0.7;
+                        const wet = Math.sin((x - delayPx + mTime) * (freq + detune) * Math.PI * 2) * amp * 0.7;
+                        const y = midY + (dry + wet) * 0.55;
+                        x === 0 ? mctx.moveTo(x, y) : mctx.lineTo(x, y);
+                    }
+                    mctx.stroke();
+
+                    mctx.font = '11px "Outfit", sans-serif';
+                    mctx.fillStyle = '#2563eb';
+                    mctx.globalAlpha = 0.7;
+                    mctx.fillText('Dry', 10, 16);
+                    mctx.fillStyle = '#ef4444';
+                    mctx.fillText('Wet', 42, 16);
+                    mctx.globalAlpha = 1.0;
+                    mctx.fillStyle = '#8b5cf6';
+                    mctx.fillText('Mixed', 76, 16);
+                }
+
+                requestAnimationFrame(tick);
+            })();
+            </script>
+
+            <h3>Chorus vs. flanging vs. vibrato</h3>
+            <p>These effects all come from the same family, but they live in slightly different regions of parameter space:</p>
+            <ul>
+                <li><strong>Chorus</strong> uses moderate delay times and gentle modulation, producing a smooth, ensemble-like thickening.</li>
+                <li><strong>Flanging</strong> uses extremely short delays, often under 10 ms, which creates pronounced comb filtering and a sweeping, metallic sound.</li>
+                <li><strong>Vibrato</strong> removes the dry signal entirely, leaving only the pitch-modulated version, so instead of thickness, you hear pure pitch wobble.</li>
+            </ul>
+        </section>
+
+        <section id="history">
+            <h2>The History of Chorus</h2>
+            <p>Chorus, at its core, is a beautifully simple illusion: take one sound, make a few slightly different copies, and let their tiny imperfections blur together into something richer, wider, and alive. But getting to that “simple” idea took over a century of clever hacks, physics tricks, and evolving technology.</p>
+            
+            <p>It all starts in the most human way possible, literally. Before electronics, chorus <em>was</em> a chorus: multiple singers or musicians performing the same part at once. No two performers are perfectly in tune or time, and those tiny differences create a natural thickness and shimmer. Orchestras rely on the exact same principle. A single violin can be expressive, but a section of violins, each player with slightly different intonation, bow pressure, and timing, creates that lush, cinematic wall of sound we associate with a full ensemble.</p>
+
+            <div class="placeholder-group">
+                <img src="assets/choir.jpg" alt="A large vocal choir performing">
+                <img src="assets/violin.jpg" alt="A symphony violin section">
+            </div>
+
+            <p>Instrument makers chased this effect too. Pianos, for instance, often use multiple strings per note, subtly detuned to produce that same lush beating.</p>
+            
+            <p>In the mid-1800s, pipe organ builders took things further with the <em>Voix céleste</em> stop, pairing slightly detuned pipes to create a slow, pulsing interference. It was one of the first intentional, built-in “chorus effects”, purely acoustic but unmistakably familiar to modern ears.</p>
+
+            <p>By the 1940s, things started to move, literally. Originally invented to fix the static, lifeless tone of electronic organs and simulate the spatial acoustics of a large pipe organ, the <strong>Leslie speaker</strong> introduced motion into the equation. Rotating horns and drums created pitch shifts via the <a href="https://en.wikipedia.org/wiki/Doppler_effect" target="_blank" rel="noopener noreferrer">Doppler effect</a>, along with swirling changes in volume and tone. For the first time, chorus was not just about detuning. It was about modulation, a key ingredient that still defines the effect today.</p>
+
+            <figure style="display: flex; align-items: center; gap: 2rem; background: var(--code-bg); padding: 1.5rem; border-radius: 12px; margin: 2rem 0; width: 100%; box-sizing: border-box;">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f8/Lesliebox_Animation.gif/500px-Lesliebox_Animation.gif" alt="An animation showing the behavior of a Leslie speaker when running." style="width: 250px; height: auto; border-radius: 8px; flex-shrink: 0;">
+                <figcaption style="font-size: 0.9rem; color: var(--secondary-text); text-align: left; line-height: 1.6;">
+                    <strong style="color: var(--text-color); font-size: 1rem; display: block; margin-bottom: 0.5rem;">An animation showing the behavior of a Leslie speaker when running.</strong>
+                    1 = Horn enclosure<br>2 = Compression driver<br>3 = Treble motor<br>4 = Crossover<br>5 = Bass motor<br>6 = Woofer<br>7 = Drum enclosure<br>8 = Drum<br>9 = Cabinet<br><i>(Amplifier not pictured)</i>
+                </figcaption>
+            </figure>
+
+            <p>Then came tape. In 1966, Beatles engineer <strong>Ken Townsend</strong> developed Automatic Double Tracking, or ADT, at <strong>Abbey Road Studios</strong>. By running a second tape machine slightly out of sync, and even modulating its speed, he could create a moving, detuned copy of a signal. This introduced a new layer of complexity: delay-based effects and the strange, swooshing patterns of comb filtering. Chorus and flanging were born from the same tape-warped DNA.</p>
+
+            <p>The late 1960s brought a major leap with the <strong>bucket-brigade device</strong>, or BBD. These circuits passed audio through chains of capacitors, effectively “sampling” it in discrete steps. It was not fully digital, but it was not purely analog either, an in-between world of discrete time. By modulating the clock speed, engineers could vary delay time and subtly shift pitch, creating the warm, wobbly chorus sounds that defined countless pedals and synths in the 1970s and 1980s.</p>
+
+            <figure style="margin: 2rem 0; width: 100%; text-align: center; background: var(--code-bg); padding: 1.5rem; border-radius: 12px; box-sizing: border-box;">
+                <img src="https://dt7v1i9vyp3mf.cloudfront.net/styles/news_large/s3/imagelibrary/f/fig01antialiasdelay-1c_.LpDPOia2rCxWtnW9lHo1Jqw8v60H.jpg" alt="A block diagram of a Bucket Brigade Device circuit" style="max-width: 100%; height: auto; border-radius: 8px;">
+                <figcaption style="margin-top: 1.5rem; font-size: 0.9rem; color: var(--secondary-text); text-align: left; line-height: 1.6;">
+                    <strong style="color: var(--text-color); font-size: 1rem; display: block; margin-bottom: 0.5rem;">How a Bucket Brigade Device (BBD) Works</strong>
+                    A BBD delays an analog signal by passing it as discrete electrical charges through a long series of capacitors. A high-frequency clocking system produces alternating clock signals (red and green) that rapidly toggle microscopic switches between the capacitors. On each clock cycle, the charge is transferred from one capacitor to the next, much like a bucket brigade passing water down a line to put out a fire. An input anti-aliasing filter prevents high-frequency artifacts from entering the chain, and a reconstruction filter at the output smooths the discrete charge transfers back into a continuous analog audio waveform.
+                </figcaption>
+            </figure>
+
+            <p>Finally, digital technology cleaned everything up. Digital delay lines removed the noise and distortion of BBDs, and by the 1990s, advanced pitch-shifting algorithms allowed for precise, stable detuning, or wildly complex modulation, without the quirks of earlier hardware.</p>
+
+            <p>And that is the journey: from human imperfection, to pipes and spinning speakers, to tape machines and capacitor chains, to pristine digital algorithms. Every step chased the same goal, turning one voice into many, and every era left its own sonic fingerprint on the lush, shimmering effect we now simply call chorus.</p>
+        </section>
+
+        <section id="mathematics">
+            <h2>Effect Mathematics</h2>
+            <p>Chorus may feel lush and mysterious, but under the hood it is built on a remarkably simple idea: mix a signal with a slightly delayed, constantly shifting copy of itself. That entire world of shimmer and width can be described with one equation:</p>
+            
+            <div class="math-block">
+                \[ y(t) = x(t) + x(t - d(t)), \quad \text{where} \quad d(t) = d_0 + A \cdot \sin(2\pi f t) \]
+            </div>
+
+            <p>To understand why this equation creates such a lush sound, we have to look at what each term is doing to the audio:</p>
+            
+            <ul>
+                <li><strong>\(x(t)\)</strong>: This is your dry, input signal. It provides the grounding and pitch stability.</li>
+                <li><strong>\(d_0\)</strong>: The <em>base delay</em>. Typical chorus effects use a base delay of 10 to 30 milliseconds. This is just long enough to separate the voices, but short enough that our brain doesn't hear them as a distinct "echo" (the Haas Effect).</li>
+                <li><strong>\(A \cdot \sin(2\pi f t)\)</strong>: This is the <strong>LFO (Low Frequency Oscillator)</strong>. It is a slow-moving wave that continuously adjusts the delay time. <strong>\(A\)</strong> determines the depth (how far it moves), and <strong>\(f\)</strong> determines the rate (how fast it moves).</li>
+                <li><strong>\(y(t)\)</strong>: The final output signal: the sum of the dry and modulated signals.</li>
+            </ul>
+
+            <h3>The Pitch-Delay Relationship</h3>
+            <p>The real magic happens because of a simple physical principle: <strong>changing delay time is equivalent to changing pitch</strong>. This is effectively the digital version of the <em><a href="https://en.wikipedia.org/wiki/Doppler_effect" target="_blank" rel="noopener noreferrer">Doppler Effect</a></em>.</p>
+            
+            <p>Think of the read pointer in a delay buffer like a listener moving toward or away from a sound source. When the LFO shortens the delay (\(d(t)\) decreases), the "distance" to the source is shrinking, which shifts the pitch upward. When the delay lengthens, it shifts the pitch downward.</p>
+
+            <p>Mathematically, the instantaneous frequency shift is proportional to the <strong>derivative</strong> of the delay function:</p>
+            <div class="math-block">
+                \[ \Delta f \approx f_{in} \cdot \left( - \frac{d}{dt} d(t) \right) \]
+            </div>
+            
+            <p>Because the derivative of a sine wave is a cosine wave, the pitch shift itself is also periodic. The result is a copy of your audio that is constantly "warping" its pitch in and out of tune with the original. When mixed together, these tiny, moving phase cancellations create the characteristic <strong>shimmer</strong> and <strong>beating</strong> we associate with chorus.</p>
+        </section>
+
+        <section id="stereo-image">
+            <h2>Stereo Image from a Mono Source</h2>
+            <p>One of chorus’s most compelling tricks is its ability to take a mono signal and expand it into something that feels wide and immersive. This is often achieved by duplicating the modulation structure across two channels, but with a crucial twist: the modulation is inverted.</p>
+            
+            <p>When the left channel’s delay is increasing, the right channel’s is decreasing. This 180° phase relationship between modulation sources creates a constant push and pull in pitch and timing. The ear interprets this opposition as spatial separation, even though both channels originate from the same source.</p>
+
+            <div style="background: var(--code-bg); padding: 1.5rem; border-radius: 12px; margin: 2rem 0; width: 100%; box-sizing: border-box; text-align: center;">
+                <canvas id="stereoCanvas" width="800" height="420" style="width: 100%; max-width: 700px; height: auto; border-radius: 8px; background: #ffffff; border: 1px solid var(--border-color); display: block; margin: 0 auto; box-shadow: 0 4px 6px rgba(0,0,0,0.02);"></canvas>
+                <figcaption style="margin-top: 1rem; font-size: 0.9rem; color: var(--secondary-text); text-align: center; line-height: 1.6;">
+                    <strong style="color: var(--text-color);">Stereo Separation</strong>: The left and right channels use 180°-inverted LFO modulation. When one channel's delay increases (pitch drops), the other's decreases (pitch rises), creating the perception of width from a mono source.
+                </figcaption>
+            </div>
+
+            <script>
+            (function() {
+                const canvas = document.getElementById('stereoCanvas');
+                const ctx = canvas.getContext('2d');
+                const W = canvas.width;
+                const H = canvas.height;
+
+                // LFO state — single accumulator, just like the real chorus
+                let phase = 0.0;
+                const lfoSpeed = 0.125; // phase units per second
+                const lfoHistory = [];
+                const maxHistory = 300;
+
+                // Scrolling waveform time
+                let waveTime = 0;
+                const waveSpeed = 36; // pixels per second
+                let lastTimestamp = null;
+
+                function triWave(p) {
+                    return p < 0.5 ? 1.0 - 4.0 * p : -1.0 + 4.0 * (p - 0.5);
+                }
+
+                function draw(timestamp) {
+                    // Delta time in seconds, capped to avoid jumps on tab switch
+                    if (lastTimestamp === null) lastTimestamp = timestamp;
+                    const dt = Math.min((timestamp - lastTimestamp) / 1000, 0.05);
+                    lastTimestamp = timestamp;
+
+                    ctx.clearRect(0, 0, W, H);
+
+                    // Advance LFO at constant rate
+                    phase += lfoSpeed * dt;
+                    if (phase >= 1.0) phase -= 1.0;
+                    const lfoVal = triWave(phase);
+                    lfoHistory.push(lfoVal);
+                    if (lfoHistory.length > maxHistory) lfoHistory.shift();
+
+                    // Layout
+                    const padL = 50;
+                    const padR = 16;
+                    const plotW = W - padL - padR;
+
+                    const lfoTop = 28;
+                    const lfoH = 80;
+                    const lfoMid = lfoTop + lfoH / 2;
+                    const lfoBottom = lfoTop + lfoH;
+                    const lfoAmp = lfoH / 2 - 6;
+
+                    const divider = lfoBottom + 28;
+                    const waveH = 110;
+                    const lWaveTop = divider + 18;
+                    const lMid = lWaveTop + waveH / 2;
+                    const rWaveTop = lWaveTop + waveH + 28;
+                    const rMid = rWaveTop + waveH / 2;
+
+                    // ========== LFO PANEL ==========
+                    ctx.font = 'bold 13px "Outfit", sans-serif';
+                    ctx.fillStyle = '#475569';
+                    ctx.textAlign = 'left';
+                    ctx.fillText('LFO Modulation', padL, lfoTop - 10);
+
+                    // Legend
+                    ctx.font = '11px "Outfit", sans-serif';
+                    ctx.textAlign = 'right';
+                    ctx.fillStyle = '#2563eb';
+                    ctx.fillText('Left ', W - padR - 100, lfoTop - 10);
+                    ctx.fillStyle = '#ef4444';
+                    ctx.fillText('Right (inverted)', W - padR, lfoTop - 10);
+
+                    // Grid lines
+                    ctx.strokeStyle = '#e2e8f0';
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([4, 4]);
+                    for (const y of [lfoTop + 3, lfoMid, lfoBottom - 3]) {
+                        ctx.beginPath();
+                        ctx.moveTo(padL, y);
+                        ctx.lineTo(W - padR, y);
+                        ctx.stroke();
+                    }
+                    ctx.setLineDash([]);
+
+                    // Axis labels
+                    ctx.font = '10px "Outfit", sans-serif';
+                    ctx.fillStyle = '#94a3b8';
+                    ctx.textAlign = 'right';
+                    ctx.fillText('+1', padL - 6, lfoTop + 7);
+                    ctx.fillText('0', padL - 6, lfoMid + 3);
+                    ctx.fillText('−1', padL - 6, lfoBottom);
+
+                    // Draw scrolling L and R LFO history
+                    const spacing = plotW / maxHistory;
+                    for (let ch = 0; ch < 2; ch++) {
+                        const sign = ch === 0 ? 1 : -1;
+                        ctx.strokeStyle = ch === 0 ? '#2563eb' : '#ef4444';
+                        ctx.lineWidth = 2.5;
+                        ctx.globalAlpha = 0.85;
+                        ctx.beginPath();
+                        for (let i = 0; i < lfoHistory.length; i++) {
+                            const x = W - padR - (lfoHistory.length - 1 - i) * spacing;
+                            const y = lfoMid - lfoHistory[i] * sign * lfoAmp;
+                            i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                        }
+                        ctx.stroke();
+                    }
+                    ctx.globalAlpha = 1.0;
+
+                    // Tracking dots at right edge
+                    if (lfoHistory.length > 0) {
+                        const cur = lfoHistory[lfoHistory.length - 1];
+                        for (let ch = 0; ch < 2; ch++) {
+                            const sign = ch === 0 ? 1 : -1;
+                            ctx.fillStyle = ch === 0 ? '#2563eb' : '#ef4444';
+                            ctx.beginPath();
+                            ctx.arc(W - padR, lfoMid - cur * sign * lfoAmp, 5, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                    }
+
+                    // ========== WAVEFORM PANELS ==========
+                    // Current LFO value drives uniform modulation for this frame
+                    const baseFreq = 0.015;
+                    const waveAmpPx = waveH / 2 - 10;
+                    const detuneDepth = 0.003;
+                    const delayDepth = 25;
+
+                    function drawChannel(label, midY, topY, lfo, color, dryColor) {
+                        // Label
+                        ctx.font = 'bold 12px "Outfit", sans-serif';
+                        ctx.fillStyle = color;
+                        ctx.textAlign = 'left';
+                        ctx.fillText(label, padL, topY - 6);
+
+                        // Zero line
+                        ctx.strokeStyle = '#f1f5f9';
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(padL, midY);
+                        ctx.lineTo(W - padR, midY);
+                        ctx.stroke();
+
+                        // Dry signal (faint, same for both channels)
+                        ctx.strokeStyle = dryColor;
+                        ctx.lineWidth = 1.5;
+                        ctx.globalAlpha = 0.35;
+                        ctx.beginPath();
+                        for (let i = 0; i <= plotW; i++) {
+                            const x = padL + i;
+                            const y = midY + Math.sin((i + waveTime) * baseFreq * Math.PI * 2) * waveAmpPx * 0.65;
+                            i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                        }
+                        ctx.stroke();
+                        ctx.globalAlpha = 1.0;
+
+                        // Wet signal — uniform detune + delay from current LFO value
+                        const detune = lfo * detuneDepth;
+                        const delayOff = lfo * delayDepth;
+                        ctx.strokeStyle = color;
+                        ctx.lineWidth = 2.5;
+                        ctx.beginPath();
+                        for (let i = 0; i <= plotW; i++) {
+                            const x = padL + i;
+                            const y = midY + Math.sin((i - delayOff + waveTime) * (baseFreq + detune) * Math.PI * 2) * waveAmpPx * 0.65;
+                            i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                        }
+                        ctx.stroke();
+
+                        // Small legends
+                        ctx.font = '10px "Outfit", sans-serif';
+                        ctx.textAlign = 'right';
+                        ctx.globalAlpha = 0.45;
+                        ctx.fillStyle = dryColor;
+                        ctx.fillText('dry', W - padR, topY + 10);
+                        ctx.globalAlpha = 1.0;
+                        ctx.fillStyle = color;
+                        ctx.fillText('chorus', W - padR, topY + 24);
+                    }
+
+                    drawChannel('Left Channel',  lMid, lWaveTop,  lfoVal, '#2563eb', '#93c5fd');
+                    drawChannel('Right Channel', rMid, rWaveTop, -lfoVal, '#ef4444', '#fca5a5');
+
+                    waveTime += waveSpeed * dt;
+                    requestAnimationFrame(draw);
+                }
+
+                requestAnimationFrame(draw);
+            })();
+            </script>
+        </section>
+
+        <section id="dsp-implementation">
+            <h2>DSP Implementation: Building a Chorus from Scratch</h2>
+            <p>At this point, chorus is no longer magic. It is a system. And like any good system, we can build it piece by piece until it starts to sing.</p>
+
+            <h3>The Circular Delay Buffer</h3>
+            <p>Everything begins with memory. A chorus needs to look into the past and continuously vary how far back it reaches. The most efficient way to do this is with a <strong>circular (ring) buffer</strong>.</p>
+
+<pre><code>import numpy as np
+
+class DelayBuffer:
+    def __init__(self, max_samples):
+        # Initialize an empty array to store the audio history
+        self.buffer = np.zeros(max_samples)
+        self.size = max_samples
+        self.write_index = 0
+
+    def write(self, x):
+        # Add a new audio sample to the buffer, wrapping around to the start if full
+        self.buffer[self.write_index] = x
+        self.write_index = (self.write_index + 1) % self.size
+
+    def read(self, delay_samples):
+        # Retrieve a sample from the past
+        read_pos = self.write_index - delay_samples
+        while read_pos < 0:
+            read_pos += self.size
+
+        # Linear interpolation between two adjacent samples to allow smooth fractional delays
+        i0 = int(read_pos)
+        i1 = (i0 + 1) % self.size
+        frac = read_pos - i0
+
+        return self.buffer[i0] * (1 - frac) + self.buffer[i1] * frac</code></pre>
+
+            <h3>The LFO</h3>
+            <p>A chorus lives and dies by its modulation. We use an accumulator-based LFO to give the system motion.</p>
+
+<pre><code>import math
+
+class LFO:
+    def __init__(self, freq, sample_rate):
+        # Define the starting phase and how much it moves forward per sample
+        self.phase = 0.0
+        self.increment = freq / sample_rate
+
+    def tick(self):
+        # Advance the oscillator one step and wrap around if passing 1.0
+        self.phase += self.increment
+        if self.phase >= 1.0:
+            self.phase -= 1.0
+
+        if self.phase < 0.5:
+            # First half of cycle: ramp down
+            return 1.0 - (4.0 * self.phase)
+        else:
+            # Second half of cycle: ramp up
+            return -1.0 + (4.0 * (self.phase - 0.5))</code></pre>
+
+            <div class="lfo-animation-container" style="background: var(--code-bg); padding: 1.5rem; border-radius: 12px; margin: 2rem 0; width: 100%; box-sizing: border-box; text-align: center;">
+                <canvas id="lfoCanvas" width="800" height="200" style="width: 100%; max-width: 600px; height: auto; border-radius: 8px; background: #ffffff; border: 1px solid var(--border-color); display: block; margin: 0 auto; box-shadow: 0 4px 6px rgba(0,0,0,0.02);"></canvas>
+                <figcaption style="margin-top: 1rem; font-size: 0.9rem; color: var(--secondary-text); text-align: center; line-height: 1.6;">
+                    <strong style="color: var(--text-color);">Live LFO Animation</strong>: The accumulator phase continuously ramps from 0.0 to 1.0, generating a perfectly sharp digital triangle wave bound between +1.0 and -1.0. 
+                </figcaption>
+            </div>
+            
+            <script>
+                (function() {
+                    const canvas = document.getElementById('lfoCanvas');
+                    const ctx = canvas.getContext('2d');
+                    
+                    let phase = 0.0;
+                    const increment = 0.005; // LFO speed
+                    const history = [];
+                    const maxHistory = 400; // Number of history points to plot
+                    
+                    function draw() {
+                        // Clear canvas
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        
+                        // Increment phase and wrap at 1.0
+                        phase += increment;
+                        if (phase >= 1.0) phase -= 1.0;
+                        
+                        // Generate triangle wave
+                        let value = 0.0;
+                        if (phase < 0.5) {
+                            value = 1.0 - (4.0 * phase); // First half: ramp down
+                        } else {
+                            value = -1.0 + (4.0 * (phase - 0.5)); // Second half: ramp up
+                        }
+                        
+                        // Store in history array
+                        history.push(value);
+                        if (history.length > maxHistory) {
+                            history.shift();
+                        }
+                        
+                        // Draw grid
+                        ctx.strokeStyle = '#f1f5f9';
+                        ctx.lineWidth = 1;
+                        
+                        // Center zero line
+                        const midY = canvas.height / 2;
+                        const padY = 20;
+                        
+                        ctx.beginPath();
+                        ctx.moveTo(0, midY);
+                        ctx.lineTo(canvas.width, midY); 
+                        ctx.stroke();
+                        
+                        // Top and bottom bounds
+                        ctx.beginPath();
+                        ctx.moveTo(0, padY);
+                        ctx.lineTo(canvas.width, padY);
+                        ctx.moveTo(0, canvas.height - padY);
+                        ctx.lineTo(canvas.width, canvas.height - padY);
+                        ctx.stroke();
+                        
+                        // Text Labels
+                        ctx.fillStyle = '#94a3b8';
+                        ctx.font = '12px "Outfit", sans-serif';
+                        ctx.textAlign = 'left';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(' +1.0', 10, padY);
+                        ctx.fillText('  0.0', 10, midY);
+                        ctx.fillText(' -1.0', 10, canvas.height - padY);
+                        
+                        // Draw triangle wave
+                        ctx.strokeStyle = '#2563eb';
+                        ctx.lineWidth = 3;
+                        ctx.lineJoin = 'round';
+                        ctx.beginPath();
+                        
+                        const spacing = canvas.width / maxHistory;
+                        const amplitude = (canvas.height - (padY * 2)) / 2;
+                        
+                        for (let i = 0; i < history.length; i++) {
+                            const x = canvas.width - ((history.length - 1 - i) * spacing);
+                            // Invert the physical Y because HTML canvas y=0 is at the top
+                            const y = midY - (history[i] * amplitude);
+                            
+                            if (i === 0) ctx.moveTo(x, y);
+                            else ctx.lineTo(x, y);
+                        }
+                        ctx.stroke();
+                        
+                        // Draw tracking dot
+                        if (history.length > 0) {
+                            const lastVal = history[history.length - 1];
+                            const currentY = midY - (lastVal * amplitude);
+                            
+                            ctx.fillStyle = '#ef4444';
+                            ctx.beginPath();
+                            ctx.arc(canvas.width, currentY, 6, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                        
+                        requestAnimationFrame(draw);
+                    }
+                    
+                    // Start animation
+                    draw();
+                })();
+            </script>
+
+            <h3>Wet/Dry Mixing and the Juno Ratio</h3>
+            <p>Many digital choruses default to a simple 50/50 mix, but the classic Roland Juno chorus does something more interesting. The processed signal is actually <strong>slightly quieter than the dry</strong>, attenuated by exactly <strong>−1.62 dB</strong> of relative gain.</p>
+<pre><code>dry_gain = 1.0
+wet_gain = 10 ** (-1.62 / 20.0)  # ≈ 0.83</code></pre>
+
+            <p style="font-size: 0.9rem; color: var(--secondary-text); padding: 1rem 1.5rem; border-left: 4px solid var(--accent-color); background: var(--code-bg); margin: 2rem 0; border-radius: 0 8px 8px 0;">
+                <strong>Why isn't it much quieter?</strong> It is easy to look at the math and assume that because <code>0.83</code> is somewhat far from <code>1.0</code>, the wet signal is getting buried. However, we have to remember that human hearing works in <strong>decibels</strong> (which are logarithmic). A multiplier of <code>0.83</code> translates to only a <strong>−1.62 dB</strong> drop, which to our ears is a very subtle difference in loudness. The chorus effect still sounds incredibly prominent alongside the dry signal!
+            </p>
+        </section>
+
+        <section id="juno-modes">
+            <h2>Key Parameters: Juno Modes</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Parameter</th>
+                        <th>Mode I</th>
+                        <th>Mode II</th>
+                        <th>Mode I+II</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>LFO rate</td>
+                        <td>~0.5 Hz triangle</td>
+                        <td>~0.83 Hz triangle</td>
+                        <td>~8–10 Hz sine</td>
+                    </tr>
+                    <tr>
+                        <td>LFO depth</td>
+                        <td>High</td>
+                        <td>High</td>
+                        <td>Low</td>
+                    </tr>
+                    <tr>
+                        <td>L/R phase</td>
+                        <td>180° inverted</td>
+                        <td>180° inverted</td>
+                        <td>180° inverted</td>
+                    </tr>
+                    <tr>
+                        <td>Wet/dry mix</td>
+                        <td>~−1.62dB</td>
+                        <td>~−1.62dB</td>
+                        <td>~−1.62dB</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <p>The chorus notably has <strong>no compander</strong>, so the BBD noise is an intentional part of the sonic identity.</p>
+
+            <div style="background: var(--code-bg); padding: 1.5rem; border-radius: 12px; margin: 2rem 0; width: 100%; box-sizing: border-box; text-align: center;">
+                <canvas id="modesCanvas" width="800" height="520" style="width: 100%; max-width: 700px; height: auto; border-radius: 8px; background: #ffffff; border: 1px solid var(--border-color); display: block; margin: 0 auto; box-shadow: 0 4px 6px rgba(0,0,0,0.02);"></canvas>
+                <figcaption style="margin-top: 1rem; font-size: 0.9rem; color: var(--secondary-text); text-align: center; line-height: 1.6;">
+                    <strong style="color: var(--text-color);">Juno Chorus Modes</strong>: Mode I is a slow, gentle chorus (~0.5 Hz triangle). Mode II is faster and more animated (~0.83 Hz triangle). Mode I+II switches to a fast sine LFO (~9 Hz) with low depth, producing a tight vibrato-like shimmer.
+                </figcaption>
+            </div>
+
+            <script>
+            (function() {
+                const canvas = document.getElementById('modesCanvas');
+                const ctx = canvas.getContext('2d');
+                const W = canvas.width;
+                const H = canvas.height;
+
+                let modesTime = 0; // elapsed seconds
+                let lastTs = null;
+
+                function tri(p) {
+                    return p < 0.5 ? 1.0 - 4.0 * p : -1.0 + 4.0 * (p - 0.5);
+                }
+
+                function draw(ts) {
+                    if (lastTs === null) lastTs = ts;
+                    const dt = Math.min((ts - lastTs) / 1000, 0.05);
+                    lastTs = ts;
+                    modesTime += dt;
+
+                    ctx.clearRect(0, 0, W, H);
+
+                    // Layout — three rows
+                    const padL = 50;
+                    const padR = 16;
+                    const plotW = W - padL - padR;
+                    const rowH = 130;
+                    const gap = 30;
+                    const row1Top = 28;
+                    const row2Top = row1Top + rowH + gap;
+                    const row3Top = row2Top + rowH + gap;
+
+                    // LFO rates in Hz (halved for display)
+                    const rateI = 0.25;
+                    const rateII = 0.415;
+                    const rateIII = 4.5;
+
+                    // Time window shown in the LFO plot (seconds)
+                    const lfoWindowSec = 8;
+
+                    function drawMode(label, freqLabel, lfoRate, lfoFunc, rowTop, color, depth) {
+                        const lfoH = 44;
+                        const lfoMid = rowTop + lfoH / 2;
+                        const lfoAmp = lfoH / 2 - 4;
+                        const waveMid = rowTop + lfoH + 14 + (rowH - lfoH - 14) / 2;
+                        const waveAmp = (rowH - lfoH - 14) / 2 - 4;
+
+                        // Title
+                        ctx.font = 'bold 13px "Outfit", sans-serif';
+                        ctx.fillStyle = color;
+                        ctx.textAlign = 'left';
+                        ctx.fillText(label, padL, rowTop - 8);
+
+                        // Rate label
+                        ctx.font = '11px "Outfit", sans-serif';
+                        ctx.fillStyle = '#94a3b8';
+                        ctx.textAlign = 'right';
+                        ctx.fillText(freqLabel, W - padR, rowTop - 8);
+
+                        // LFO zero line
+                        ctx.strokeStyle = '#e2e8f0';
+                        ctx.lineWidth = 1;
+                        ctx.setLineDash([4, 4]);
+                        ctx.beginPath();
+                        ctx.moveTo(padL, lfoMid);
+                        ctx.lineTo(W - padR, lfoMid);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+
+                        // LFO curve — computed from time, not history
+                        ctx.strokeStyle = color;
+                        ctx.lineWidth = 2;
+                        ctx.globalAlpha = 0.6;
+                        ctx.beginPath();
+                        const steps = 400;
+                        for (let i = 0; i <= steps; i++) {
+                            const t = modesTime - lfoWindowSec * (1 - i / steps);
+                            const phase = ((t * lfoRate) % 1 + 1) % 1;
+                            const val = lfoFunc(phase);
+                            const x = padL + (i / steps) * plotW;
+                            const y = lfoMid - val * lfoAmp;
+                            i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                        }
+                        ctx.stroke();
+                        ctx.globalAlpha = 1.0;
+
+                        // LFO dot at right edge
+                        const curPhase = ((modesTime * lfoRate) % 1 + 1) % 1;
+                        const curVal = lfoFunc(curPhase);
+                        ctx.fillStyle = color;
+                        ctx.beginPath();
+                        ctx.arc(W - padR, lfoMid - curVal * lfoAmp, 4, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        // LFO label
+                        ctx.font = '9px "Outfit", sans-serif';
+                        ctx.fillStyle = '#94a3b8';
+                        ctx.textAlign = 'right';
+                        ctx.fillText('LFO', padL - 6, lfoMid + 3);
+
+                        // Waveform separator
+                        ctx.strokeStyle = '#f1f5f9';
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(padL, waveMid);
+                        ctx.lineTo(W - padR, waveMid);
+                        ctx.stroke();
+
+                        // Modulated output waveform
+                        const baseFreq = 0.015;
+                        const waveScroll = modesTime * 18;
+                        const detune = curVal * 0.003 * depth;
+                        const delayOff = curVal * 20 * depth;
+
+                        // Dry (faint)
+                        ctx.strokeStyle = '#cbd5e1';
+                        ctx.lineWidth = 1.5;
+                        ctx.globalAlpha = 0.4;
+                        ctx.beginPath();
+                        for (let i = 0; i <= plotW; i++) {
+                            const x = padL + i;
+                            const y = waveMid + Math.sin((i + waveScroll) * baseFreq * Math.PI * 2) * waveAmp * 0.8;
+                            i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                        }
+                        ctx.stroke();
+                        ctx.globalAlpha = 1.0;
+
+                        // Wet (modulated)
+                        ctx.strokeStyle = color;
+                        ctx.lineWidth = 2.5;
+                        ctx.beginPath();
+                        for (let i = 0; i <= plotW; i++) {
+                            const x = padL + i;
+                            const y = waveMid + Math.sin((i - delayOff + waveScroll) * (baseFreq + detune) * Math.PI * 2) * waveAmp * 0.8;
+                            i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                        }
+                        ctx.stroke();
+                    }
+
+                    drawMode('Mode I',    '~0.5 Hz triangle',  rateI,   tri,                                    row1Top, '#2563eb', 1.0);
+                    drawMode('Mode II',   '~0.83 Hz triangle', rateII,  tri,                                    row2Top, '#ef4444', 1.0);
+                    drawMode('Mode I+II', '~9 Hz sine',        rateIII, function(p) { return Math.sin(p * Math.PI * 2); }, row3Top, '#8b5cf6', 0.3);
+
+                    requestAnimationFrame(draw);
+                }
+
+                requestAnimationFrame(draw);
+            })();
+            </script>
+        </section>
+
+        <section id="integration">
+            <h2>Integration into the Synth Signal Chain</h2>
+            <p>Placement is not a detail; it is part of the sound. In a classic Juno-style architecture, the chorus sits near the end of the signal path:</p>
+            
+            <div class="signal-chain" style="display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 1rem; margin: 2.5rem 0; padding: 2rem; background: var(--code-bg); border-radius: 12px; font-family: 'Outfit', sans-serif;">
+                
+                <div style="background: #ffffff; padding: 1rem 1.2rem; border-radius: 8px; border: 1px solid var(--border-color); font-weight: 500; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.6rem; min-width: 100px;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--secondary-text);"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                    <span>Oscillators</span>
+                </div>
+                
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--secondary-text);"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                
+                <div style="background: #ffffff; padding: 1rem 1.2rem; border-radius: 8px; border: 1px solid var(--border-color); font-weight: 500; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.6rem; min-width: 100px;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--secondary-text);"><path d="M3 3v18h18"/><path d="M18 9l-5 5-4-4-5 5"/></svg>
+                    <span>Filter</span>
+                </div>
+                
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--secondary-text);"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                
+                <div style="background: #ffffff; padding: 1rem 1.2rem; border-radius: 8px; border: 1px solid var(--border-color); font-weight: 500; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.6rem; min-width: 100px;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--secondary-text);">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                    </svg>
+                    <span>VCA</span>
+                </div>
+                
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-color);"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                
+                <div style="background: var(--accent-color); color: white; padding: 1.2rem 1.5rem; border-radius: 8px; font-weight: 700; text-align: center; transform: scale(1.05); box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25); display: flex; flex-direction: column; align-items: center; gap: 0.6rem; min-width: 100px;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48 0a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg>
+                    <span>Chorus</span>
+                </div>
+                
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--secondary-text);"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                
+                <div style="background: #ffffff; padding: 1rem 1.2rem; border-radius: 8px; border: 1px solid var(--border-color); font-weight: 500; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.6rem; min-width: 100px;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--secondary-text);"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="12" cy="14" r="4"/><path d="M12 6h.01"/></svg>
+                    <span>Output</span>
+                </div>
+                
+            </div>
+
+            <div style="font-size: 0.9rem; color: var(--secondary-text); padding: 1rem 1.5rem; border-left: 4px solid var(--accent-color); background: var(--code-bg); margin: 2rem 0; border-radius: 0 8px 8px 0;">
+                <strong>Architecture Note:</strong> Because of this positioning, the harmonic content is smeared <em>after</em> the filter shapes it. The chorus is not responsible for the core timbre, only for motion and width. Also, notice it sits after the VCA (<strong>Voltage-Controlled Amplifier</strong>)—the synthesizer component responsible for dynamically controlling the volume envelope of the sound. By placing it post-VCA, the modulation interacts directly with the natural decay of the final amplitude stage, making the effect feel like it lives "inside" the instrument rather than being applied on top of it.
+            </div>
+        </section>
+
+        <section id="final-thoughts">
+            <h2>Final Thoughts</h2>
+            <p>The Juno chorus is a reminder that musical richness does not need to be complex. Richness comes from carefully chosen deformities that reinforce each other.</p>
+            <p>A single delay line. A simple LFO. A fixed stereo inversion. A slightly noisy implementation with no attempt to be mathematically clean. And yet the result is one of the most iconic audio effects ever built.</p>
+            <p>Chorus works because it commits to being perfectly imperfect.</p>
+
+            <div style="margin-top: 1rem; text-align: center;">
+                <img src="assets/juno60.png" alt="Roland Juno-60 Programmable Polyphonic Synthesizer" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 1px solid var(--border-color);">
+            </div>
+        </section>
+
+        <section id="sources" style="font-size: 0.8rem; font-style: italic; color: var(--secondary-text); border-top: 1px solid var(--border-color); padding-top: 1.5rem; margin-top: 1.5rem;">
+            <h2 style="font-style: normal; font-size: 1.2rem;">Sources</h2>
+            <ul style="list-style: none; padding: 0; margin-top: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                <li>Helpful repo that provides an analysis on the Juno-60 chorus: <a href="https://github.com/pendragon-andyh/Juno60/tree/master/Chorus">github.com/pendragon-andyh/Juno60</a></li>
+                <li>WebAudio API emulation of the classic Roland Juno-60 synthesizer: <a href="https://github.com/pendragon-andyh/junox">github.com/pendragon-andyh/junox</a> (<a href="https://pendragon-andyh.github.io/junox/demo/juno60-nexusUI.html">demo</a>)</li>
+                <li>A collaborative reverse-engineering discussion using a "gray-box" method: <a href="https://github.com/jpcima/rc-effect-playground/issues/2">github.com/jpcima/rc-effect-playground</a></li>
+                <li>Comparative reference covering modulation rates, basic delay times, and BBD chip variations across all Roland pre-digital chorus circuits: <a href="https://www.florian-anwander.de/roland_string_choruses/">florian-anwander.de</a></li>
+                <li>Thread discussing key LFO parameters from the official manuals: <a href="https://www.kvraudio.com/forum/viewtopic.php?t=489346">kvraudio.com</a></li>
+                <li>A hands-on teardown and standalone build using a real 106 chorus board. Explains the control signals (I/II mode logic, HPF switching, VCA): <a href="https://hkadesign.org.uk/106chorus.html">hkadesign.org.uk</a></li>
+                <li>A brief history of the Juno Synth line: <a href="https://www.perfectcircuit.com/signal/roland-juno-history">perfectcircuit.com</a></li>
+                <li>Video explaining Bucket Brigade Delay (BBD): <a href="https://www.youtube.com/watch?v=PD48jm51K6g">youtube.com</a></li>
+                <li>An (Excellent) history of chorus: <a href="https://www.youtube.com/watch?v=k2_LQaORseY">youtube.com</a></li>
+            </ul>
+            <h3 style="font-style: normal; font-size: 1rem; margin-top: 1.5rem;">Relevant VSTs</h3>
+            <ul style="list-style: none; padding: 0; margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                <li>A free Juno-60 chorus emulation from TAL Software: <a href="https://tal-software.com/products/tal-chorus-lx">tal-software.com</a></li>
+                <li>A paid Juno-60 chorus plugin by Roland: <a href="https://www.roland.com/us/products/rc_juno-60_chorus/">roland.com</a></li>
+            </ul>
+        </section>
+
+        <footer style="margin-top: 1rem; text-align: center;">
+            <p><em>© 2026 Robert Tylman. Built for sonic exploration.</em></p>
+        </footer>
+    </article>
+</body>
+</html>
