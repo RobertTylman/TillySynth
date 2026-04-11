@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Outfit:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Outfit:wght@400;700&family=Orbitron:wght@500;700;800&display=swap');
 
 :root {
     --bg-color: #ffffff;
@@ -7,6 +7,25 @@
     --accent-color: #2563eb;
     --border-color: #eeeeee;
     --code-bg: #f8f9fa;
+    --strong-color: #000000;
+    --canvas-bg: #ffffff;
+    --canvas-border: var(--border-color);
+    --article-surface: transparent;
+    --article-shadow: none;
+    --hero-panel-bg: #f8fafc;
+    --hero-panel-border: #e2e8f0;
+    --hero-label: #0f172a;
+    --hero-grid: #e2e8f0;
+    --hero-wave-mono: #111111;
+    --hero-wave-a: #2563eb;
+    --hero-wave-b: #ef4444;
+    --hero-arrow: #94a3b8;
+    --hero-meter-border: #cbd5e1;
+    --hero-meter-label: #64748b;
+    --hero-card-left-bg: #eef6ff;
+    --hero-card-right-bg: #f6f0ff;
+    --hero-card-left-border: #dbeafe;
+    --hero-card-right-border: #e9d5ff;
     --max-width: 800px;
 }
 
@@ -22,11 +41,16 @@ body {
     color: var(--text-color);
     background-color: var(--bg-color);
     padding: 2rem 1rem;
+    transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 article {
     max-width: var(--max-width);
     margin: 0 auto;
+    background: var(--article-surface);
+    box-shadow: var(--article-shadow);
+    border-radius: 14px;
+    transition: background-color 0.25s ease, box-shadow 0.25s ease;
 }
 
 header {
@@ -78,7 +102,7 @@ li {
 
 strong {
     font-weight: 700;
-    color: #000;
+    color: var(--strong-color);
 }
 
 a {
@@ -151,6 +175,119 @@ code {
     font-family: inherit;
 }
 
+canvas {
+    background: var(--canvas-bg) !important;
+    border-color: var(--canvas-border) !important;
+}
+
+.theme-toggle {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    z-index: 1000;
+}
+
+.theme-toggle button {
+    appearance: none;
+    border: 1px solid var(--border-color);
+    background: var(--code-bg);
+    color: var(--text-color);
+    font: 600 0.8rem/1 'Outfit', sans-serif;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    border-radius: 999px;
+    padding: 0.45rem 0.8rem;
+    cursor: pointer;
+    transition: transform 0.15s ease, background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.theme-toggle button:hover {
+    transform: translateY(-1px);
+}
+
+.theme-toggle button:focus-visible {
+    outline: 2px solid var(--accent-color);
+    outline-offset: 2px;
+}
+
+:root[data-theme="retro-juno"] {
+    --bg-color: #262b33;
+    --text-color: #e6e8dc;
+    --secondary-text: #bdc4c9;
+    --accent-color: #d06707;
+    --border-color: #4f5862;
+    --code-bg: #1f242b;
+    --strong-color: #f3f0df;
+    --canvas-bg: #11151a;
+    --canvas-border: #5a6572;
+    --article-surface: linear-gradient(180deg, rgba(18, 22, 29, 0.86), rgba(23, 28, 35, 0.86));
+    --article-shadow: 0 20px 50px rgba(7, 10, 14, 0.45);
+    --hero-panel-bg: #1e242d;
+    --hero-panel-border: #5a6572;
+    --hero-label: #f1edd9;
+    --hero-grid: #414b57;
+    --hero-wave-mono: #f3f0df;
+    --hero-wave-a: #3568b9;
+    --hero-wave-b: #d06707;
+    --hero-arrow: #9ba5b0;
+    --hero-meter-border: #5e6977;
+    --hero-meter-label: #c4ccd2;
+    --hero-card-left-bg: #1d2734;
+    --hero-card-right-bg: #2d2118;
+    --hero-card-left-border: #3568b9;
+    --hero-card-right-border: #d06707;
+}
+
+:root[data-theme="retro-juno"] body {
+    background-image:
+        linear-gradient(90deg, rgba(208, 103, 7, 0.08), rgba(53, 104, 185, 0.08)),
+        repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.02) 1px, transparent 1px, transparent 3px);
+}
+
+:root[data-theme="retro-juno"] h2 {
+    border-bottom-color: #3568b9;
+}
+
+:root[data-theme="retro-juno"] article {
+    padding: 1.6rem 2.2rem 2.2rem;
+}
+
+:root[data-theme="retro-juno"] h1,
+:root[data-theme="retro-juno"] h2,
+:root[data-theme="retro-juno"] h3,
+:root[data-theme="retro-juno"] h4 {
+    font-family: 'Orbitron', 'Outfit', sans-serif;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+:root[data-theme="retro-juno"] h1 {
+    font-weight: 800;
+    font-size: 2.65rem;
+}
+
+:root[data-theme="retro-juno"] h2 {
+    font-weight: 700;
+}
+
+:root[data-theme="retro-juno"] h3,
+:root[data-theme="retro-juno"] h4 {
+    font-weight: 500;
+}
+
+:root[data-theme="retro-juno"] a {
+    border-bottom-color: #7f8a96;
+}
+
+:root[data-theme="retro-juno"] a:hover {
+    border-bottom-color: var(--accent-color);
+    color: #ffd8a5;
+}
+
+:root[data-theme="retro-juno"] th {
+    background: #262d36;
+}
+
 .placeholder {
     width: 100%;
     height: 300px;
@@ -213,4 +350,8 @@ article > * {
     h1 { font-size: 2.25rem; }
     h2 { font-size: 1.75rem; }
     body { padding: 1.5rem 1rem; }
+    .theme-toggle { top: 0.75rem; right: 0.75rem; }
+    .theme-toggle button { padding: 0.4rem 0.65rem; font-size: 0.75rem; }
+    :root[data-theme="retro-juno"] article { padding: 1.15rem 1.1rem 1.6rem; }
+    :root[data-theme="retro-juno"] h1 { font-size: 2.2rem; }
 }

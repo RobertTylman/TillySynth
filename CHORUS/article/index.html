@@ -5,12 +5,64 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Understanding the Juno-60 Chorus | TillySynth</title>
     <meta name="description" content="A deep dive into the classic Roland Juno-60 Chorus effect, its history, mathematics, and digital implementation.">
-    <link rel="stylesheet" href="style.css?v=20260410-2">
+    <script>
+        (function() {
+            try {
+                var storedTheme = localStorage.getItem('chorusArticleTheme');
+                if (storedTheme === 'retro-juno') {
+                    document.documentElement.setAttribute('data-theme', 'retro-juno');
+                }
+            } catch (e) {}
+        })();
+    </script>
+    <link rel="stylesheet" href="style.css?v=20260411-1">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body);"></script>
 </head>
 <body>
+    <div class="theme-toggle">
+        <button id="themeToggleBtn" type="button" aria-label="Toggle visual theme"></button>
+    </div>
+
+    <script>
+    (function() {
+        const root = document.documentElement;
+        const btn = document.getElementById('themeToggleBtn');
+        if (!btn) return;
+
+        function isRetro() {
+            return root.getAttribute('data-theme') === 'retro-juno';
+        }
+
+        function setButtonLabel() {
+            btn.textContent = isRetro() ? 'Retro' : 'Classic';
+        }
+
+        function persistTheme() {
+            try {
+                if (isRetro()) {
+                    localStorage.setItem('chorusArticleTheme', 'retro-juno');
+                } else {
+                    localStorage.setItem('chorusArticleTheme', 'classic');
+                }
+            } catch (e) {}
+        }
+
+        btn.addEventListener('click', function() {
+            if (isRetro()) {
+                root.removeAttribute('data-theme');
+            } else {
+                root.setAttribute('data-theme', 'retro-juno');
+            }
+            setButtonLabel();
+            persistTheme();
+        });
+
+        setButtonLabel();
+    })();
+    </script>
+
     <article>
         <header>
             <h1>Understanding the Juno-60 Chorus</h1>
@@ -43,6 +95,14 @@
 
                 let startTs = null;
                 let rafId = null;
+                let framePending = false;
+
+                function scheduleNextFrame() {
+                    if (framePending) return;
+                    framePending = true;
+                    rafId = requestAnimationFrame(draw);
+                    window.__heroAnimRaf = rafId;
+                }
 
                 function tri(p) {
                     return p < 0.5 ? 1.0 - 4.0 * p : -1.0 + 4.0 * (p - 0.5);
@@ -50,8 +110,24 @@
 
                 function draw(ts) {
                     if (window.__heroAnimToken !== animToken) return;
+                    framePending = false;
                     if (startTs === null) startTs = ts;
                     const elapsed = (ts - startTs) / 1000;
+                    const theme = getComputedStyle(document.documentElement);
+                    const panelBg = theme.getPropertyValue('--hero-panel-bg').trim() || '#f8fafc';
+                    const panelBorder = theme.getPropertyValue('--hero-panel-border').trim() || '#e2e8f0';
+                    const heroLabel = theme.getPropertyValue('--hero-label').trim() || '#0f172a';
+                    const heroGrid = theme.getPropertyValue('--hero-grid').trim() || '#e2e8f0';
+                    const monoWave = theme.getPropertyValue('--hero-wave-mono').trim() || '#111111';
+                    const voiceA = theme.getPropertyValue('--hero-wave-a').trim() || '#2563eb';
+                    const voiceB = theme.getPropertyValue('--hero-wave-b').trim() || '#ef4444';
+                    const arrowColor = theme.getPropertyValue('--hero-arrow').trim() || '#94a3b8';
+                    const meterBorder = theme.getPropertyValue('--hero-meter-border').trim() || '#cbd5e1';
+                    const meterLabel = theme.getPropertyValue('--hero-meter-label').trim() || '#64748b';
+                    const cardLeftBg = theme.getPropertyValue('--hero-card-left-bg').trim() || '#eef6ff';
+                    const cardRightBg = theme.getPropertyValue('--hero-card-right-bg').trim() || '#f6f0ff';
+                    const cardLeftBorder = theme.getPropertyValue('--hero-card-left-border').trim() || '#dbeafe';
+                    const cardRightBorder = theme.getPropertyValue('--hero-card-right-border').trim() || '#e9d5ff';
 
                     ctx.clearRect(0, 0, W, H);
 
@@ -72,13 +148,12 @@
 
                     const phase = ((elapsed * 0.35) % 1 + 1) % 1;
                     const lfo = tri(phase);
-                    const delayOff = 12 + lfo * 8;
 
                     // Panel backgrounds
-                    ctx.fillStyle = '#f8fafc';
+                    ctx.fillStyle = panelBg;
                     ctx.fillRect(leftX, panelY, panelW, panelH);
                     ctx.fillRect(rightX, panelY, panelW, panelH);
-                    ctx.strokeStyle = '#e2e8f0';
+                    ctx.strokeStyle = panelBorder;
                     ctx.lineWidth = 1;
                     ctx.strokeRect(leftX, panelY, panelW, panelH);
                     ctx.strokeRect(rightX, panelY, panelW, panelH);
@@ -86,16 +161,16 @@
                     // Labels
                     ctx.font = 'bold 15px "Outfit", sans-serif';
                     ctx.textAlign = 'center';
-                    ctx.fillStyle = '#0f172a';
+                    ctx.fillStyle = heroLabel;
                     ctx.fillText('Before: Dry Mono', leftX + panelW / 2, panelY + 22);
-                    ctx.fillStyle = '#0f172a';
+                    ctx.fillStyle = heroLabel;
                     ctx.fillText('After: Chorus', rightX + panelW / 2, panelY + 22);
 
                     // Divider arrow
                     const arrowY = panelY + panelH / 2;
                     const arrowX = leftX + panelW + gap / 2;
-                    ctx.strokeStyle = '#94a3b8';
-                    ctx.fillStyle = '#94a3b8';
+                    ctx.strokeStyle = arrowColor;
+                    ctx.fillStyle = arrowColor;
                     ctx.lineWidth = 1.5;
                     ctx.beginPath();
                     ctx.moveTo(arrowX - 8, arrowY);
@@ -108,7 +183,7 @@
                     ctx.fill();
 
                     // Zero lines
-                    ctx.strokeStyle = '#e2e8f0';
+                    ctx.strokeStyle = heroGrid;
                     ctx.lineWidth = 1;
                     ctx.beginPath();
                     ctx.moveTo(leftX + 10, midY);
@@ -118,7 +193,7 @@
                     ctx.stroke();
 
                     // Dry waveform (left panel)
-                    ctx.strokeStyle = '#111111';
+                    ctx.strokeStyle = monoWave;
                     ctx.lineWidth = 2.5;
                     ctx.beginPath();
                     for (let i = 0; i <= panelW - 20; i++) {
@@ -128,40 +203,34 @@
                     }
                     ctx.stroke();
 
-                    // Right panel: dry ghost
-                    ctx.strokeStyle = '#93c5fd';
-                    ctx.lineWidth = 1.5;
-                    ctx.globalAlpha = 0.55;
+                    // Right panel: many modulated voices, each shifting in time/pitch
+                    const voiceCount = 7;
+                    for (let v = 0; v < voiceCount; v++) {
+                        const spread = (v - (voiceCount - 1) / 2) * 2.2;
+                        const drift = elapsed * (0.55 + v * 0.07) + v * 0.9;
+                        const delayOff = spread + Math.sin(drift * 1.7) * 6;
+                        const detune = Math.sin(drift * 1.2 + v * 0.6) * 0.0012;
+
+                        ctx.strokeStyle = v % 2 === 0 ? voiceA : voiceB;
+                        ctx.lineWidth = 1.5;
+                        ctx.globalAlpha = 0.22 + v * 0.05;
+                        ctx.beginPath();
+                        for (let i = 0; i <= panelW - 20; i++) {
+                            const x = rightX + 10 + i;
+                            const y = midY + Math.sin((i - delayOff + scroll) * (freq + detune) * Math.PI * 2) * amp * 0.65;
+                            i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                        }
+                        ctx.stroke();
+                    }
+                    ctx.globalAlpha = 1.0;
+
+                    // Right panel: original mono reference (same style as dry panel)
+                    ctx.strokeStyle = monoWave;
+                    ctx.lineWidth = 2.5;
                     ctx.beginPath();
                     for (let i = 0; i <= panelW - 20; i++) {
                         const x = rightX + 10 + i;
                         const y = midY + Math.sin((i + scroll) * freq * Math.PI * 2) * amp * 0.72;
-                        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-                    }
-                    ctx.stroke();
-
-                    // Right panel: wet modulation
-                    ctx.strokeStyle = '#ef4444';
-                    ctx.lineWidth = 2;
-                    ctx.globalAlpha = 0.75;
-                    ctx.beginPath();
-                    for (let i = 0; i <= panelW - 20; i++) {
-                        const x = rightX + 10 + i;
-                        const y = midY + Math.sin((i - delayOff + scroll) * freq * Math.PI * 2) * amp * 0.72;
-                        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-                    }
-                    ctx.stroke();
-
-                    // Right panel: combined output
-                    ctx.strokeStyle = '#111111';
-                    ctx.lineWidth = 2.6;
-                    ctx.globalAlpha = 1.0;
-                    ctx.beginPath();
-                    for (let i = 0; i <= panelW - 20; i++) {
-                        const x = rightX + 10 + i;
-                        const dry = Math.sin((i + scroll) * freq * Math.PI * 2) * amp * 0.72;
-                        const wet = Math.sin((i - delayOff + scroll) * freq * Math.PI * 2) * amp * 0.72;
-                        const y = midY + (dry + wet) * 0.55;
                         i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
                     }
                     ctx.stroke();
@@ -174,13 +243,13 @@
                     const rightCardX = rightX + 12;
                     const cardW = panelW - 24;
 
-                    ctx.fillStyle = '#eef6ff';
+                    ctx.fillStyle = cardLeftBg;
                     ctx.fillRect(leftCardX, cardY, cardW, cardH);
-                    ctx.fillStyle = '#f6f0ff';
+                    ctx.fillStyle = cardRightBg;
                     ctx.fillRect(rightCardX, cardY, cardW, cardH);
-                    ctx.strokeStyle = '#dbeafe';
+                    ctx.strokeStyle = cardLeftBorder;
                     ctx.strokeRect(leftCardX, cardY, cardW, cardH);
-                    ctx.strokeStyle = '#e9d5ff';
+                    ctx.strokeStyle = cardRightBorder;
                     ctx.strokeRect(rightCardX, cardY, cardW, cardH);
 
                     const leftCx = leftCardX + 30;
@@ -195,17 +264,17 @@
                     ctx.beginPath();
                     ctx.arc(leftCx, dotsY, 10 * pulse, 0, Math.PI * 2);
                     ctx.stroke();
-                    ctx.fillStyle = '#111111';
+                    ctx.fillStyle = monoWave;
                     ctx.beginPath();
                     ctx.arc(leftCx, dotsY, 7, 0, Math.PI * 2);
                     ctx.fill();
 
                     ctx.font = 'bold 13px "Outfit", sans-serif';
-                    ctx.fillStyle = '#1e3a8a';
+                    ctx.fillStyle = voiceA;
                     ctx.textAlign = 'left';
                     ctx.fillText('1 Voice', leftCx + labelOffset, dotsY - 4);
                     ctx.font = '11px "Outfit", sans-serif';
-                    ctx.fillStyle = '#475569';
+                    ctx.fillStyle = meterLabel;
                     ctx.fillText('Stable, centered source', leftCx + labelOffset, dotsY + 13);
 
                     // Right: many drifting copies around a core voice
@@ -220,42 +289,41 @@
                         ctx.arc(x, y, 4.2, 0, Math.PI * 2);
                         ctx.fill();
                     }
-                    ctx.fillStyle = '#111111';
+                    ctx.fillStyle = monoWave;
                     ctx.beginPath();
                     ctx.arc(rightCx, dotsY, 6, 0, Math.PI * 2);
                     ctx.fill();
                     ctx.font = 'bold 13px "Outfit", sans-serif';
-                    ctx.fillStyle = '#6b21a8';
+                    ctx.fillStyle = voiceB;
                     ctx.textAlign = 'left';
                     ctx.fillText('Many Voices', rightCx + labelOffset, dotsY - 4);
                     ctx.font = '11px "Outfit", sans-serif';
-                    ctx.fillStyle = '#475569';
+                    ctx.fillStyle = meterLabel;
                     ctx.fillText('Detuned + delayed copies', rightCx + labelOffset, dotsY + 13);
 
                     // Mini stereo-width meter
                     const meterX = rightX + panelW - 36;
                     const meterY = panelY + panelH - 108;
                     const width = 10 + Math.abs(lfo) * 18;
-                    ctx.strokeStyle = '#cbd5e1';
+                    ctx.strokeStyle = meterBorder;
                     ctx.lineWidth = 1;
                     ctx.strokeRect(meterX - 28, meterY, 56, 30);
-                    ctx.fillStyle = '#2563eb';
+                    ctx.fillStyle = voiceA;
                     ctx.fillRect(meterX - width, meterY + 6, width, 6);
-                    ctx.fillStyle = '#ef4444';
+                    ctx.fillStyle = voiceB;
                     ctx.fillRect(meterX, meterY + 18, width, 6);
                     ctx.font = '9px "Outfit", sans-serif';
-                    ctx.fillStyle = '#64748b';
+                    ctx.fillStyle = meterLabel;
                     ctx.textAlign = 'center';
                     ctx.fillText('stereo width', meterX, meterY - 4);
 
-                    rafId = requestAnimationFrame(draw);
-                    window.__heroAnimRaf = rafId;
+                    scheduleNextFrame();
                 }
 
-                rafId = requestAnimationFrame(draw);
-                window.__heroAnimRaf = rafId;
+                scheduleNextFrame();
                 window.addEventListener('pagehide', function cleanupHeroAnim() {
                     if (rafId !== null) cancelAnimationFrame(rafId);
+                    framePending = false;
                     if (window.__heroAnimToken === animToken) {
                         window.__heroAnimRaf = null;
                     }
@@ -508,8 +576,8 @@
                 <img src="assets/violin.jpg" alt="A symphony violin section">
             </div>
 
-            <p>Instrument makers chased this effect too. Pianos, for instance, often use multiple strings per note, subtly detuned to produce that same lush beating.</p>
-            
+            <p>Instrument makers chased this effect too. Pianos, for instance, often use multiple strings per note, subtly detuned to produce that same lush beating. The mandolin and 12-string guitar also uses pairs of strings per note, tuned in unison, to produce a brighter, more shimmering tone.</p>
+        
             <p>In the mid-1800s, pipe organ builders took things further with the <em>Voix céleste</em> stop, pairing slightly detuned pipes to create a slow, pulsing interference. It was one of the first intentional, built-in “chorus effects”, purely acoustic but unmistakably familiar to modern ears.</p>
 
             <p>By the 1940s, things started to move, literally. Originally invented to fix the static, lifeless tone of electronic organs and simulate the spatial acoustics of a large pipe organ, the <strong>Leslie speaker</strong> introduced motion into the equation. Rotating horns and drums created pitch shifts via the <a href="https://en.wikipedia.org/wiki/Doppler_effect" target="_blank" rel="noopener noreferrer">Doppler effect</a>, along with swirling changes in volume and tone. For the first time, chorus was not just about detuning. It was about modulation, a key ingredient that still defines the effect today.</p>
@@ -557,7 +625,7 @@
             </ul>
 
             <h3>The Pitch-Delay Relationship</h3>
-            <p>The real magic happens because of a simple physical principle: <strong>changing delay time is equivalent to changing pitch</strong>. This is effectively the digital version of the <em><a href="https://en.wikipedia.org/wiki/Doppler_effect" target="_blank" rel="noopener noreferrer">Doppler Effect</a></em>.</p>
+            <p>The real magic happens because of a simple physical principle: <strong>changing delay time is equivalent to changing pitch</strong>. This is effectively the digital version of the Doppler Effect.</p>
             
             <p>Think of the read pointer in a delay buffer like a listener moving toward or away from a sound source. When the LFO shortens the delay (\(d(t)\) decreases), the "distance" to the source is shrinking, which shifts the pitch upward. When the delay lengthens, it shifts the pitch downward.</p>
 
@@ -1006,18 +1074,25 @@ wet_gain = 10 ** (-1.62 / 20.0)  # ≈ 0.83</code></pre>
                 const W = canvas.width;
                 const H = canvas.height;
 
+                // Keep exactly one loop alive to avoid accidental speed-up from duplicate RAFs.
+                if (window.__modesAnimRaf != null) {
+                    cancelAnimationFrame(window.__modesAnimRaf);
+                }
+                const modesAnimToken = (window.__modesAnimToken || 0) + 1;
+                window.__modesAnimToken = modesAnimToken;
+
                 let modesTime = 0; // elapsed seconds
-                let lastTs = null;
+                let startTs = null;
+                let modesRafId = null;
 
                 function tri(p) {
                     return p < 0.5 ? 1.0 - 4.0 * p : -1.0 + 4.0 * (p - 0.5);
                 }
 
                 function draw(ts) {
-                    if (lastTs === null) lastTs = ts;
-                    const dt = Math.min((ts - lastTs) / 1000, 0.05);
-                    lastTs = ts;
-                    modesTime += dt;
+                    if (window.__modesAnimToken !== modesAnimToken) return;
+                    if (startTs === null) startTs = ts;
+                    modesTime = (ts - startTs) / 1000;
 
                     ctx.clearRect(0, 0, W, H);
 
@@ -1142,10 +1217,19 @@ wet_gain = 10 ** (-1.62 / 20.0)  # ≈ 0.83</code></pre>
                     drawMode('Mode II',   '~0.83 Hz triangle', rateII,  tri,                                    row2Top, '#ef4444', 1.0);
                     drawMode('Mode I+II', '~9 Hz sine',        rateIII, function(p) { return Math.sin(p * Math.PI * 2); }, row3Top, '#8b5cf6', 0.3);
 
-                    requestAnimationFrame(draw);
+                    modesRafId = requestAnimationFrame(draw);
+                    window.__modesAnimRaf = modesRafId;
                 }
 
-                requestAnimationFrame(draw);
+                modesRafId = requestAnimationFrame(draw);
+                window.__modesAnimRaf = modesRafId;
+                window.addEventListener('pagehide', function cleanupModesAnim() {
+                    if (modesRafId !== null) cancelAnimationFrame(modesRafId);
+                    if (window.__modesAnimToken === modesAnimToken) {
+                        window.__modesAnimRaf = null;
+                    }
+                    window.removeEventListener('pagehide', cleanupModesAnim);
+                });
             })();
             </script>
         </section>
