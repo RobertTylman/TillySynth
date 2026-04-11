@@ -1238,24 +1238,24 @@ wet_gain = 10 ** (-1.62 / 20.0)  # ≈ 0.83</code></pre>
             <h2>Integration into the Synth Signal Chain</h2>
             <p>Placement is not a detail; it is part of the sound. In a classic Juno-style architecture, the chorus sits near the end of the signal path:</p>
             
-            <div class="signal-chain" style="display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 1rem; margin: 2.5rem 0; padding: 2rem; background: var(--code-bg); border-radius: 12px; font-family: 'Outfit', sans-serif;">
+            <div class="signal-chain" style="display: flex; flex-wrap: nowrap; align-items: center; justify-content: center; gap: 0.45rem; margin: 2.5rem 0; padding: 1rem 0.6rem; background: var(--code-bg); border-radius: 12px; font-family: 'Outfit', sans-serif; font-size: clamp(0.58rem, 1.15vw, 1rem); overflow: hidden;">
                 
-                <div style="background: #ffffff; padding: 1rem 1.2rem; border-radius: 8px; border: 1px solid var(--border-color); font-weight: 500; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.6rem; min-width: 100px;">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--secondary-text);"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                <div style="background: #ffffff; padding: clamp(0.5rem, 0.8vw, 1rem) clamp(0.55rem, 1vw, 1.2rem); border-radius: 8px; border: 1px solid var(--border-color); font-weight: 500; text-align: center; display: flex; flex-direction: column; align-items: center; gap: clamp(0.25rem, 0.5vw, 0.6rem); min-width: clamp(68px, 10.5vw, 100px);">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--secondary-text);"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
                     <span>Oscillators</span>
                 </div>
                 
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--secondary-text);"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--secondary-text);"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
                 
-                <div style="background: #ffffff; padding: 1rem 1.2rem; border-radius: 8px; border: 1px solid var(--border-color); font-weight: 500; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.6rem; min-width: 100px;">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--secondary-text);"><path d="M3 3v18h18"/><path d="M18 9l-5 5-4-4-5 5"/></svg>
+                <div style="background: #ffffff; padding: clamp(0.5rem, 0.8vw, 1rem) clamp(0.55rem, 1vw, 1.2rem); border-radius: 8px; border: 1px solid var(--border-color); font-weight: 500; text-align: center; display: flex; flex-direction: column; align-items: center; gap: clamp(0.25rem, 0.5vw, 0.6rem); min-width: clamp(68px, 10.5vw, 100px);">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--secondary-text);"><path d="M3 3v18h18"/><path d="M18 9l-5 5-4-4-5 5"/></svg>
                     <span>Filter</span>
                 </div>
                 
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--secondary-text);"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--secondary-text);"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
                 
-                <div style="background: #ffffff; padding: 1rem 1.2rem; border-radius: 8px; border: 1px solid var(--border-color); font-weight: 500; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.6rem; min-width: 100px;">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--secondary-text);">
+                <div style="background: #ffffff; padding: clamp(0.5rem, 0.8vw, 1rem) clamp(0.55rem, 1vw, 1.2rem); border-radius: 8px; border: 1px solid var(--border-color); font-weight: 500; text-align: center; display: flex; flex-direction: column; align-items: center; gap: clamp(0.25rem, 0.5vw, 0.6rem); min-width: clamp(68px, 10.5vw, 100px);">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--secondary-text);">
                         <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
                         <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
                         <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
@@ -1263,17 +1263,17 @@ wet_gain = 10 ** (-1.62 / 20.0)  # ≈ 0.83</code></pre>
                     <span>VCA</span>
                 </div>
                 
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-color);"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-color);"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
                 
-                <div style="background: var(--accent-color); color: white; padding: 1.2rem 1.5rem; border-radius: 8px; font-weight: 700; text-align: center; transform: scale(1.05); box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25); display: flex; flex-direction: column; align-items: center; gap: 0.6rem; min-width: 100px;">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48 0a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg>
+                <div style="background: var(--accent-color); color: white; padding: clamp(0.55rem, 0.9vw, 1.2rem) clamp(0.65rem, 1.15vw, 1.5rem); border-radius: 8px; font-weight: 700; text-align: center; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25); display: flex; flex-direction: column; align-items: center; gap: clamp(0.25rem, 0.5vw, 0.6rem); min-width: clamp(68px, 10.5vw, 100px);">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48 0a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg>
                     <span>Chorus</span>
                 </div>
                 
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--secondary-text);"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--secondary-text);"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
                 
-                <div style="background: #ffffff; padding: 1rem 1.2rem; border-radius: 8px; border: 1px solid var(--border-color); font-weight: 500; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.6rem; min-width: 100px;">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--secondary-text);"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="12" cy="14" r="4"/><path d="M12 6h.01"/></svg>
+                <div style="background: #ffffff; padding: clamp(0.5rem, 0.8vw, 1rem) clamp(0.55rem, 1vw, 1.2rem); border-radius: 8px; border: 1px solid var(--border-color); font-weight: 500; text-align: center; display: flex; flex-direction: column; align-items: center; gap: clamp(0.25rem, 0.5vw, 0.6rem); min-width: clamp(68px, 10.5vw, 100px);">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--secondary-text);"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="12" cy="14" r="4"/><path d="M12 6h.01"/></svg>
                     <span>Output</span>
                 </div>
                 
