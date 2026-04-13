@@ -69,7 +69,8 @@
         </header>
 
         <section id="introduction">
-            <p>The goal of chorus is to make a duplicated, detuned signal. In the digital age, this is a trivial operation. However, performing this in the past was much more involved, and understanding why it works requires a bit of psychoacoustics.</p>
+            <p><strong><i>Why even care about chorus?</i></strong><br> It's just some confusing audio effect that makes stuff sound "retro" and "cool". Well, if you claim to be an engineer, artist, or musician, then many valuable lessons about physics and sound itself can be derived from a brief lesson on chorus. In this short article, we will discuss chorus from its humble beginnings to its fascinating (and intuitive) mathematics.
+                <br><br><strong>The Goal</strong>: The goal of chorus is to make a duplicated, detuned signal. <br> <br> In the digital age, this is a trivial operation.  However, performing this in the past was much more involved, and understanding why it works requires a bit of psychoacoustics:</p>
             
             <div style="background: var(--code-bg); padding: 1.5rem; border-radius: 12px; margin: 2rem 0; width: 100%; box-sizing: border-box; text-align: center;">
                 <canvas id="heroCanvas" width="800" height="280" style="width: 100%; max-width: 700px; height: auto; border-radius: 8px; background: #ffffff; border: 1px solid var(--border-color); display: block; margin: 0 auto; box-shadow: 0 4px 6px rgba(0,0,0,0.02);"></canvas>
@@ -376,13 +377,22 @@
 
             <script>
             (function() {
+                // Keep exactly one loop alive for this section to prevent stacked RAF speed-up.
+                if (window.__coreAnimRaf != null) {
+                    cancelAnimationFrame(window.__coreAnimRaf);
+                }
+                const coreAnimToken = (window.__coreAnimToken || 0) + 1;
+                window.__coreAnimToken = coreAnimToken;
+
                 // Shared delta-time state
                 let lastTs = null;
                 const speed = 50; // pixels per second (base scroll rate)
+                let coreRafId = null;
 
                 let pTime = 0, tTime = 0, mTime = 0;
 
                 function tick(ts) {
+                    if (window.__coreAnimToken !== coreAnimToken) return;
                     if (lastTs === null) lastTs = ts;
                     const dt = Math.min((ts - lastTs) / 1000, 0.05);
                     lastTs = ts;
@@ -395,7 +405,8 @@
                     drawPitch();
                     drawTime();
                     drawMix();
-                    requestAnimationFrame(tick);
+                    coreRafId = requestAnimationFrame(tick);
+                    window.__coreAnimRaf = coreRafId;
                 }
 
                 // --- Pitch Deviation Animation ---
@@ -552,12 +563,20 @@
                     mctx.fillText('Mixed', 76, 16);
                 }
 
-                requestAnimationFrame(tick);
+                coreRafId = requestAnimationFrame(tick);
+                window.__coreAnimRaf = coreRafId;
+                window.addEventListener('pagehide', function cleanupCoreAnim() {
+                    if (coreRafId !== null) cancelAnimationFrame(coreRafId);
+                    if (window.__coreAnimToken === coreAnimToken) {
+                        window.__coreAnimRaf = null;
+                    }
+                    window.removeEventListener('pagehide', cleanupCoreAnim);
+                });
             })();
             </script>
 
-            <h3>Chorus vs. flanging vs. vibrato</h3>
-            <p>These effects all come from the same family, but they live in slightly different regions of parameter space:</p>
+            <h3>Chorus vs. flanging vs. vibrato...?</h3>
+            <p>Lets clarify one thing. These effects all come from the same family, but they live in slightly different regions of parameter space:</p>
             <ul>
                 <li><strong>Chorus</strong> uses moderate delay times and gentle modulation, producing a smooth, ensemble-like thickening.</li>
                 <li><strong>Flanging</strong> uses extremely short delays, often under 10 ms, which creates pronounced comb filtering and a sweeping, metallic sound.</li>
@@ -587,6 +606,9 @@
                 <figcaption style="font-size: 0.9rem; color: var(--secondary-text); text-align: left; line-height: 1.6;">
                     <strong style="color: var(--text-color); font-size: 1rem; display: block; margin-bottom: 0.5rem;">An animation showing the behavior of a Leslie speaker when running.</strong>
                     1 = Horn enclosure<br>2 = Compression driver<br>3 = Treble motor<br>4 = Crossover<br>5 = Bass motor<br>6 = Woofer<br>7 = Drum enclosure<br>8 = Drum<br>9 = Cabinet<br><i>(Amplifier not pictured)</i>
+                    <p style="margin-top: 1rem; font-size: 0.85rem; border-top: 1px solid var(--border-color); padding-top: 0.75rem; font-style: italic; opacity: 0.85;">
+                        Leslie speakers (also called rotary speakers) were designed to give electronic organs a more expressive, "alive" sound. This way, they could mimic the richness of a pipe organ. They were most famously paired with Hammond organs.
+                    </p>
                 </figcaption>
             </figure>
 
@@ -657,6 +679,13 @@
                 const W = canvas.width;
                 const H = canvas.height;
 
+                // Keep exactly one loop alive for this section to prevent stacked RAF speed-up.
+                if (window.__stereoAnimRaf != null) {
+                    cancelAnimationFrame(window.__stereoAnimRaf);
+                }
+                const stereoAnimToken = (window.__stereoAnimToken || 0) + 1;
+                window.__stereoAnimToken = stereoAnimToken;
+
                 // LFO state — single accumulator, just like the real chorus
                 let phase = 0.0;
                 const lfoSpeed = 0.125; // phase units per second
@@ -667,12 +696,14 @@
                 let waveTime = 0;
                 const waveSpeed = 36; // pixels per second
                 let lastTimestamp = null;
+                let stereoRafId = null;
 
                 function triWave(p) {
                     return p < 0.5 ? 1.0 - 4.0 * p : -1.0 + 4.0 * (p - 0.5);
                 }
 
                 function draw(timestamp) {
+                    if (window.__stereoAnimToken !== stereoAnimToken) return;
                     // Delta time in seconds, capped to avoid jumps on tab switch
                     if (lastTimestamp === null) lastTimestamp = timestamp;
                     const dt = Math.min((timestamp - lastTimestamp) / 1000, 0.05);
@@ -831,10 +862,19 @@
                     drawChannel('Right Channel', rMid, rWaveTop, -lfoVal, '#ef4444', '#fca5a5');
 
                     waveTime += waveSpeed * dt;
-                    requestAnimationFrame(draw);
+                    stereoRafId = requestAnimationFrame(draw);
+                    window.__stereoAnimRaf = stereoRafId;
                 }
 
-                requestAnimationFrame(draw);
+                stereoRafId = requestAnimationFrame(draw);
+                window.__stereoAnimRaf = stereoRafId;
+                window.addEventListener('pagehide', function cleanupStereoAnim() {
+                    if (stereoRafId !== null) cancelAnimationFrame(stereoRafId);
+                    if (window.__stereoAnimToken === stereoAnimToken) {
+                        window.__stereoAnimRaf = null;
+                    }
+                    window.removeEventListener('pagehide', cleanupStereoAnim);
+                });
             })();
             </script>
         </section>
@@ -908,14 +948,23 @@ class LFO:
                 (function() {
                     const canvas = document.getElementById('lfoCanvas');
                     const ctx = canvas.getContext('2d');
+
+                    // Keep exactly one loop alive for this section to prevent stacked RAF speed-up.
+                    if (window.__lfoAnimRaf != null) {
+                        cancelAnimationFrame(window.__lfoAnimRaf);
+                    }
+                    const lfoAnimToken = (window.__lfoAnimToken || 0) + 1;
+                    window.__lfoAnimToken = lfoAnimToken;
                     
                     let phase = 0.0;
                     const lfoRate = 0.5; // cycles per second
                     let lastTs = null;
                     const history = [];
                     const maxHistory = 400; // Number of history points to plot
+                    let lfoRafId = null;
                     
                     function draw(ts) {
+                        if (window.__lfoAnimToken !== lfoAnimToken) return;
                         if (lastTs === null) lastTs = ts;
                         const dt = Math.min((ts - lastTs) / 1000, 0.05);
                         lastTs = ts;
@@ -1001,11 +1050,20 @@ class LFO:
                             ctx.fill();
                         }
                         
-                        requestAnimationFrame(draw);
+                        lfoRafId = requestAnimationFrame(draw);
+                        window.__lfoAnimRaf = lfoRafId;
                     }
                     
                     // Start animation
-                    requestAnimationFrame(draw);
+                    lfoRafId = requestAnimationFrame(draw);
+                    window.__lfoAnimRaf = lfoRafId;
+                    window.addEventListener('pagehide', function cleanupLfoAnim() {
+                        if (lfoRafId !== null) cancelAnimationFrame(lfoRafId);
+                        if (window.__lfoAnimToken === lfoAnimToken) {
+                            window.__lfoAnimRaf = null;
+                        }
+                        window.removeEventListener('pagehide', cleanupLfoAnim);
+                    });
                 })();
             </script>
 
@@ -1057,13 +1115,12 @@ wet_gain = 10 ** (-1.62 / 20.0)  # ≈ 0.83</code></pre>
                     </tr>
                 </tbody>
             </table>
-            
-            <p>The chorus notably has <strong>no compander</strong>, so the BBD noise is an intentional part of the sonic identity.</p>
 
+            <h3 style="margin-bottom: 1rem;">Juno Chorus In Action:</h3>
             <div style="background: var(--code-bg); padding: 1.5rem; border-radius: 12px; margin: 2rem 0; width: 100%; box-sizing: border-box; text-align: center;">
                 <canvas id="modesCanvas" width="800" height="520" style="width: 100%; max-width: 700px; height: auto; border-radius: 8px; background: #ffffff; border: 1px solid var(--border-color); display: block; margin: 0 auto; box-shadow: 0 4px 6px rgba(0,0,0,0.02);"></canvas>
                 <figcaption style="margin-top: 1rem; font-size: 0.9rem; color: var(--secondary-text); text-align: center; line-height: 1.6;">
-                    <strong style="color: var(--text-color);">Juno Chorus Modes</strong>: Mode I is a slow, gentle chorus (~0.5 Hz triangle). Mode II is faster and more animated (~0.83 Hz triangle). Mode I+II switches to a fast sine LFO (~9 Hz) with low depth, producing a tight vibrato-like shimmer.
+                    <strong style="color: var(--text-color);">Juno Chorus Modes</strong>: <br>Mode I is a slow, gentle chorus (~0.5 Hz triangle). <br>Mode II is faster and more animated (~0.83 Hz triangle). <br>Mode I+II switches to a fast sine LFO (~9 Hz) with low depth, producing a tight vibrato-like shimmer.
                 </figcaption>
             </div>
 
@@ -1280,7 +1337,8 @@ wet_gain = 10 ** (-1.62 / 20.0)  # ≈ 0.83</code></pre>
             </div>
 
             <div style="font-size: 0.9rem; color: var(--secondary-text); padding: 1rem 1.5rem; border-left: 4px solid var(--accent-color); background: var(--code-bg); margin: 2rem 0; border-radius: 0 8px 8px 0;">
-                <strong>Architecture Note:</strong> Because of this positioning, the harmonic content is smeared <em>after</em> the filter shapes it. The chorus is not responsible for the core timbre, only for motion and width. Also, notice it sits after the VCA (Voltage Controlled Amplifier) - the synthesizer component responsible for dynamically controlling the volume envelope of the sound. By placing it post-VCA, the modulation interacts directly with the natural decay of the final amplitude stage, making the effect feel like it lives "inside" the instrument rather than being applied on top of it.
+                <strong>Architecture Note:</strong> Because the chorus sits after both the filter and VCA, it acts on the fully shaped signal—first the filter sculpts the harmonic content, then the VCA (Voltage Controlled Amplifier) controls how the volume evolves over time—so the chorus simply smears those harmonics to add motion and width rather than defining the core timbre. Essentially, the modulation follows the natural amplitude envelope, making the effect feel embedded within the sound instead of layered on top.
+
             </div>
         </section>
 
@@ -1297,7 +1355,7 @@ wet_gain = 10 ** (-1.62 / 20.0)  # ≈ 0.83</code></pre>
 
         <section id="sources" style="font-size: 0.8rem; font-style: italic; color: var(--secondary-text); border-top: 1px solid var(--border-color); padding-top: 1.5rem; margin-top: 1.5rem;">
             <h2 style="font-style: normal; font-size: 1.2rem;">Sources</h2>
-            <ul style="list-style: none; padding: 0; margin-top: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
+            <ul style="list-style: none; padding: 0; margin-left: 0; margin-top: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
                 <li>Helpful repo that provides an analysis on the Juno-60 chorus: <a href="https://github.com/pendragon-andyh/Juno60/tree/master/Chorus">github.com/pendragon-andyh/Juno60</a></li>
                 <li>WebAudio API emulation of the classic Roland Juno-60 synthesizer: <a href="https://github.com/pendragon-andyh/junox">github.com/pendragon-andyh/junox</a> (<a href="https://pendragon-andyh.github.io/junox/demo/juno60-nexusUI.html">demo</a>)</li>
                 <li>A collaborative reverse-engineering discussion using a "gray-box" method: <a href="https://github.com/jpcima/rc-effect-playground/issues/2">github.com/jpcima/rc-effect-playground</a></li>
@@ -1308,15 +1366,16 @@ wet_gain = 10 ** (-1.62 / 20.0)  # ≈ 0.83</code></pre>
                 <li>Video explaining Bucket Brigade Delay (BBD): <a href="https://www.youtube.com/watch?v=PD48jm51K6g">youtube.com</a></li>
                 <li>An (Excellent) history of chorus: <a href="https://www.youtube.com/watch?v=k2_LQaORseY">youtube.com</a></li>
             </ul>
-            <h3 style="font-style: normal; font-size: 1rem; margin-top: 1.5rem;">Relevant VSTs</h3>
+            <h3 style="font-style: normal; font-size: 1rem; margin-top: 1rem;">Relevant VSTs</h3>
             <ul style="list-style: none; padding: 0; margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                <li>TillySynth (by me!): <a href="https://github.com/RobertTylman/TillySynth">github.com/RobertTylman/TillySynth</a></li>
                 <li>A free Juno-60 chorus emulation from TAL Software: <a href="https://tal-software.com/products/tal-chorus-lx">tal-software.com</a></li>
                 <li>A paid Juno-60 chorus plugin by Roland: <a href="https://www.roland.com/us/products/rc_juno-60_chorus/">roland.com</a></li>
             </ul>
         </section>
 
-        <footer style="margin-top: 1rem; text-align: center;">
-            <p><em>© 2026 Robert Tylman. Built for sonic exploration.</em></p>
+        <footer style="font-size: 0.8rem; margin-top: 3rem; margin-bottom: -2rem ; text-align: center;">
+            <p><em>© 2026 Robert Tylman.</em></p>
         </footer>
     </article>
 </body>

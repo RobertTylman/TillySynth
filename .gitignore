@@ -39,6 +39,3 @@ _deps/
 *.dylib
 *.dll
 *.so
-
-# Claude
-.claude/plans/
