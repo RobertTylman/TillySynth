@@ -1138,8 +1138,10 @@ wet_gain = 10 ** (-1.62 / 20.0)  # ≈ 0.83</code></pre>
                 const modesAnimToken = (window.__modesAnimToken || 0) + 1;
                 window.__modesAnimToken = modesAnimToken;
 
-                let modesTime = 0; // elapsed seconds
-                let startTs = null;
+                let modesElapsed = 0; // elapsed seconds (delta-time accumulator)
+                let lastTs = null;
+                let wavePhase = 0; // bounded scrolling phase in radians
+                const waveSpeed = 18; // pixels per second
                 let modesRafId = null;
 
                 function tri(p) {
@@ -1148,8 +1150,10 @@ wet_gain = 10 ** (-1.62 / 20.0)  # ≈ 0.83</code></pre>
 
                 function draw(ts) {
                     if (window.__modesAnimToken !== modesAnimToken) return;
-                    if (startTs === null) startTs = ts;
-                    modesTime = (ts - startTs) / 1000;
+                    if (lastTs === null) lastTs = ts;
+                    const dt = Math.min((ts - lastTs) / 1000, 0.05);
+                    lastTs = ts;
+                    modesElapsed += dt;
 
                     ctx.clearRect(0, 0, W, H);
 
@@ -1170,6 +1174,11 @@ wet_gain = 10 ** (-1.62 / 20.0)  # ≈ 0.83</code></pre>
 
                     // Time window shown in the LFO plot (seconds)
                     const lfoWindowSec = 8;
+                    const baseFreq = 0.015;
+                    const tau = Math.PI * 2;
+                    const waveOmega = waveSpeed * baseFreq * tau;
+                    wavePhase += waveOmega * dt;
+                    if (wavePhase >= tau) wavePhase -= tau;
 
                     function drawMode(label, freqLabel, lfoRate, lfoFunc, rowTop, color, depth) {
                         const lfoH = 44;
@@ -1207,7 +1216,7 @@ wet_gain = 10 ** (-1.62 / 20.0)  # ≈ 0.83</code></pre>
                         ctx.beginPath();
                         const steps = 400;
                         for (let i = 0; i <= steps; i++) {
-                            const t = modesTime - lfoWindowSec * (1 - i / steps);
+                            const t = modesElapsed - lfoWindowSec * (1 - i / steps);
                             const phase = ((t * lfoRate) % 1 + 1) % 1;
                             const val = lfoFunc(phase);
                             const x = padL + (i / steps) * plotW;
@@ -1218,7 +1227,7 @@ wet_gain = 10 ** (-1.62 / 20.0)  # ≈ 0.83</code></pre>
                         ctx.globalAlpha = 1.0;
 
                         // LFO dot at right edge
-                        const curPhase = ((modesTime * lfoRate) % 1 + 1) % 1;
+                        const curPhase = ((modesElapsed * lfoRate) % 1 + 1) % 1;
                         const curVal = lfoFunc(curPhase);
                         ctx.fillStyle = color;
                         ctx.beginPath();
@@ -1240,8 +1249,6 @@ wet_gain = 10 ** (-1.62 / 20.0)  # ≈ 0.83</code></pre>
                         ctx.stroke();
 
                         // Modulated output waveform
-                        const baseFreq = 0.015;
-                        const waveScroll = modesTime * 18;
                         const detune = curVal * 0.003 * depth;
                         const delayOff = curVal * 20 * depth;
 
@@ -1252,7 +1259,7 @@ wet_gain = 10 ** (-1.62 / 20.0)  # ≈ 0.83</code></pre>
                         ctx.beginPath();
                         for (let i = 0; i <= plotW; i++) {
                             const x = padL + i;
-                            const y = waveMid + Math.sin((i + waveScroll) * baseFreq * Math.PI * 2) * waveAmp * 0.8;
+                            const y = waveMid + Math.sin(i * baseFreq * tau + wavePhase) * waveAmp * 0.8;
                             i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
                         }
                         ctx.stroke();
@@ -1262,9 +1269,10 @@ wet_gain = 10 ** (-1.62 / 20.0)  # ≈ 0.83</code></pre>
                         ctx.strokeStyle = color;
                         ctx.lineWidth = 2.5;
                         ctx.beginPath();
+                        const phaseScale = (baseFreq + detune) / baseFreq;
                         for (let i = 0; i <= plotW; i++) {
                             const x = padL + i;
-                            const y = waveMid + Math.sin((i - delayOff + waveScroll) * (baseFreq + detune) * Math.PI * 2) * waveAmp * 0.8;
+                            const y = waveMid + Math.sin((i - delayOff) * (baseFreq + detune) * tau + wavePhase * phaseScale) * waveAmp * 0.8;
                             i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
                         }
                         ctx.stroke();
