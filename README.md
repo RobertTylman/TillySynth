@@ -35,8 +35,64 @@ Unlike static digital recreations, TillySynth feels alive. At its core is a uniq
 *   **Sidechain Capability**: External sidechain input support for rhythmic ducking and pulsing effects.
 
 ### 🌈 Vintage Effects & Output
-*   **BBD-Style Chorus**: A meticulously modeled Bucket Brigade Device chorus with classic I, II, and I+II modes.
+*   **1:1 Juno 60 Chorus Emulation**: Meticulous research went into emulating the famous Juno-60 chorus from scratch with classic I, II, and I+II modes.
     *   *Deep Dive:* [Understanding the Juno-60 Chorus](CHORUS/article/index.html) (`open CHORUS/article/index.html`)
+    *   **Signal Flow (Juno-Style Chorus Pipeline):**
+        ```mermaid
+        flowchart TD
+            %% Node Definitions
+            In([Synth Voices L/R])
+            Sum(Mono Sum)
+            PreLPF[[Pre-BBD LPF<br/>8kHz 12dB/oct]]
+            
+            subgraph BBD_Network [Dual BBD Pipeline]
+                BBD_L[BBD Delay L]
+                BBD_R[BBD Delay R]
+            end
+            
+            subgraph Mod_Engine [Modulation Engine]
+                LFO[Shared LFO<br/>Tri/Sine]
+                Invert[Phase Inversion<br/>180°]
+                LFO --> Invert
+            end
+            
+            OutLPF_L[[Post-Wet LPF L]]
+            OutLPF_R[[Post-Wet LPF R]]
+            Mix{Dry/Wet Mix}
+            Out([Final Audio Output])
+            
+            %% Signal Connections
+            In --> Sum
+            Sum --> PreLPF
+            PreLPF --> BBD_L
+            PreLPF --> BBD_R
+            
+            LFO -- "+Depth" --> BBD_L
+            Invert -- "-Depth" --> BBD_R
+            
+            BBD_L --> OutLPF_L
+            BBD_R --> OutLPF_R
+            
+            OutLPF_L --> Mix
+            OutLPF_R --> Mix
+            In -. Dry Path .-> Mix
+            
+            Mix --> Out
+
+            %% Styling (Boxes UI)
+            classDef default font-family:system-ui,sans-serif;
+            classDef io fill:#2d3436,color:#fff,stroke-width:2px,stroke:#000;
+            classDef process fill:#6c5ce7,color:#fff,stroke-width:2px,stroke:#4834d4;
+            classDef bbd fill:#d63031,color:#fff,stroke-width:2px,stroke:#b33939;
+            classDef lfo fill:#0984e3,color:#fff,stroke-width:2px,stroke:#0652dd;
+            classDef mixer fill:#00b894,color:#fff,stroke-width:2px,stroke:#019477;
+
+            class In,Out io;
+            class PreLPF,OutLPF_L,OutLPF_R process;
+            class BBD_L,BBD_R bbd;
+            class LFO,Invert lfo;
+            class Mix mixer;
+        ```
 *   **Lush Reverb**: Integrated algorithmic reverb with room size, damping, and stereo width controls.
 *   **Output Character**: Selectable "Vintage" and "Console" saturation modes for extra warmth and weight.
 *   **Glide / Portamento**: Smooth pitch transitions for both monophonic and polyphonic patches.
