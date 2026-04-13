@@ -11,25 +11,25 @@ TillySynthLookAndFeel::TillySynthLookAndFeel()
 void TillySynthLookAndFeel::applyThemeColours()
 {
     setColour (juce::Slider::rotarySliderFillColourId, Colours::warmAmber());
-    setColour (juce::Slider::rotarySliderOutlineColourId, Colours::knobOutline);
-    setColour (juce::Slider::thumbColourId, Colours::mutedCream);
+    setColour (juce::Slider::rotarySliderOutlineColourId, Colours::knobOutline());
+    setColour (juce::Slider::thumbColourId, Colours::mutedCream());
 
-    setColour (juce::Label::textColourId, Colours::labelText);
+    setColour (juce::Label::textColourId, Colours::labelText());
 
-    setColour (juce::ComboBox::backgroundColourId, Colours::knobFill);
-    setColour (juce::ComboBox::textColourId, Colours::mutedCream);
-    setColour (juce::ComboBox::outlineColourId, Colours::knobOutline);
+    setColour (juce::ComboBox::backgroundColourId, Colours::knobFill());
+    setColour (juce::ComboBox::textColourId, Colours::mutedCream());
+    setColour (juce::ComboBox::outlineColourId, Colours::knobOutline());
     setColour (juce::ComboBox::arrowColourId, Colours::warmAmber());
 
-    setColour (juce::PopupMenu::backgroundColourId, Colours::panelBackground);
-    setColour (juce::PopupMenu::textColourId, Colours::mutedCream);
+    setColour (juce::PopupMenu::backgroundColourId, Colours::panelBackground());
+    setColour (juce::PopupMenu::textColourId, Colours::mutedCream());
     setColour (juce::PopupMenu::highlightedBackgroundColourId, Colours::darkAmber());
-    setColour (juce::PopupMenu::highlightedTextColourId, Colours::mutedCream);
+    setColour (juce::PopupMenu::highlightedTextColourId, Colours::mutedCream());
 
-    setColour (juce::TextButton::buttonColourId, Colours::inactiveButton);
+    setColour (juce::TextButton::buttonColourId, Colours::inactiveButton());
     setColour (juce::TextButton::buttonOnColourId, Colours::activeButton());
-    setColour (juce::TextButton::textColourOffId, Colours::labelText);
-    setColour (juce::TextButton::textColourOnId, Colours::panelBackground);
+    setColour (juce::TextButton::textColourOffId, Colours::labelText());
+    setColour (juce::TextButton::textColourOnId, Colours::panelBackground());
 }
 
 void TillySynthLookAndFeel::drawRotarySlider (juce::Graphics& g,
@@ -59,9 +59,9 @@ void TillySynthLookAndFeel::drawRotarySlider (juce::Graphics& g,
         knobBody.addEllipse (centreX - radius, centreY - radius,
                              radius * 2.0f, radius * 2.0f);
 
-        juce::ColourGradient bodyGrad (Colours::knobFill.brighter (0.25f),
+        juce::ColourGradient bodyGrad (Colours::knobFill().brighter (0.25f),
                                        centreX, centreY,
-                                       Colours::knobFill.darker (0.2f),
+                                       Colours::knobFill().darker (0.2f),
                                        centreX, centreY + radius, true);
         g.setGradientFill (bodyGrad);
         g.fillPath (knobBody);
@@ -74,9 +74,9 @@ void TillySynthLookAndFeel::drawRotarySlider (juce::Graphics& g,
         bezelRing.addEllipse (centreX - bezelRadius, centreY - bezelRadius,
                               bezelRadius * 2.0f, bezelRadius * 2.0f);
 
-        juce::ColourGradient bezelGrad (Colours::knobOutline.brighter (0.3f),
+        juce::ColourGradient bezelGrad (Colours::knobOutline().brighter (0.3f),
                                         centreX, centreY - bezelRadius,
-                                        Colours::knobOutline.darker (0.3f),
+                                        Colours::knobOutline().darker (0.3f),
                                         centreX, centreY + bezelRadius, false);
         g.setGradientFill (bezelGrad);
         g.strokePath (bezelRing, juce::PathStrokeType (2.0f));
@@ -106,7 +106,7 @@ void TillySynthLookAndFeel::drawRotarySlider (juce::Graphics& g,
         juce::Path arcTrack;
         arcTrack.addCentredArc (centreX, centreY, arcRadius, arcRadius,
                                 0.0f, rotaryStartAngle, rotaryEndAngle, true);
-        g.setColour (Colours::knobOutline.withAlpha (0.25f));
+        g.setColour (Colours::knobOutline().withAlpha (0.25f));
         g.strokePath (arcTrack, juce::PathStrokeType (3.0f, juce::PathStrokeType::curved,
                                                        juce::PathStrokeType::rounded));
     }
@@ -135,11 +135,11 @@ void TillySynthLookAndFeel::drawRotarySlider (juce::Graphics& g,
         float y2 = centreY - cosAngle * pointerOuter;
 
         // Glow pass
-        g.setColour (Colours::mutedCream.withAlpha (0.2f));
+        g.setColour (Colours::mutedCream().withAlpha (0.2f));
         g.drawLine (x1, y1, x2, y2, 3.5f);
 
         // Sharp pass
-        g.setColour (Colours::mutedCream);
+        g.setColour (Colours::mutedCream());
         g.drawLine (x1, y1, x2, y2, 2.0f);
 
         // Layer 7: Tip dot
@@ -163,13 +163,13 @@ void TillySynthLookAndFeel::drawLinearSlider (juce::Graphics& g,
         float trackTop = static_cast<float> (y);
         float trackBottom = static_cast<float> (y + height);
 
-        g.setColour (Colours::knobOutline.withAlpha (0.3f));
+        g.setColour (Colours::knobOutline().withAlpha (0.3f));
         g.drawLine (trackX, trackTop, trackX, trackBottom, 3.0f);
 
         g.setColour (Colours::warmAmber());
         g.drawLine (trackX, sliderPos, trackX, trackBottom, 3.0f);
 
-        g.setColour (Colours::mutedCream);
+        g.setColour (Colours::mutedCream());
         g.fillEllipse (trackX - 6.0f, sliderPos - 6.0f, 12.0f, 12.0f);
     }
     else
@@ -178,13 +178,13 @@ void TillySynthLookAndFeel::drawLinearSlider (juce::Graphics& g,
         float trackLeft = static_cast<float> (x);
         float trackRight = static_cast<float> (x + width);
 
-        g.setColour (Colours::knobOutline.withAlpha (0.3f));
+        g.setColour (Colours::knobOutline().withAlpha (0.3f));
         g.drawLine (trackLeft, trackY, trackRight, trackY, 3.0f);
 
         g.setColour (Colours::warmAmber());
         g.drawLine (trackLeft, trackY, sliderPos, trackY, 3.0f);
 
-        g.setColour (Colours::mutedCream);
+        g.setColour (Colours::mutedCream());
         g.fillEllipse (sliderPos - 6.0f, trackY - 6.0f, 12.0f, 12.0f);
     }
 }
@@ -223,7 +223,7 @@ void TillySynthLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Butto
         g.fillRoundedRectangle (bounds, 4.0f);
     }
 
-    g.setColour (Colours::knobOutline);
+    g.setColour (Colours::knobOutline());
     g.drawRoundedRectangle (bounds, 4.0f, 1.0f);
 }
 
@@ -254,10 +254,10 @@ void TillySynthLookAndFeel::drawComboBox (juce::Graphics& g, int width, int heig
                                            static_cast<float> (width),
                                            static_cast<float> (height));
 
-    g.setColour (Colours::knobFill);
+    g.setColour (Colours::knobFill());
     g.fillRoundedRectangle (bounds.reduced (1.0f), 4.0f);
 
-    g.setColour (Colours::knobOutline);
+    g.setColour (Colours::knobOutline());
     g.drawRoundedRectangle (bounds.reduced (1.0f), 4.0f, 1.0f);
 
     // Arrow
