@@ -98,7 +98,7 @@ private:
     static constexpr float kHandleRadius = 5.0f;
 };
 
-class TillySynthEditor : public juce::AudioProcessorEditor, private juce::Timer
+class TillySynthEditor : public juce::AudioProcessorEditor
 {
 public:
     explicit TillySynthEditor (TillySynthProcessor& processor);
@@ -139,7 +139,7 @@ private:
 
     ToggleWithLabel createToggle (const juce::String& paramId, const juce::String& labelText);
 
-    void timerCallback() override;
+    void onFrameTick (double timestampSec);
     void drawHeader (juce::Graphics& g, juce::Rectangle<int> bounds);
     void drawDriftScope (juce::Graphics& g, juce::Rectangle<int> bounds);
     void drawSectionBackground (juce::Graphics& g, juce::Rectangle<int> bounds,
@@ -218,6 +218,11 @@ private:
 
     // Scope buffer snapshot for oscilloscope display
     std::array<float, 512> scopeSnapshot {};
+    int scopeTriggerOffset = 0;
+
+    // Drives UI updates at the display's native refresh rate (60/120/144 Hz)
+    juce::VBlankAttachment vblankAttachment;
+    double lastFrameTimeSec = 0.0;
 
     // Drift noise buffer for idle oscilloscope fluctuation
     std::array<float, 512> driftNoise {};

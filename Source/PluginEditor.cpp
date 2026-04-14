@@ -1094,12 +1094,14 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
     getConstrainer()->setFixedAspectRatio (static_cast<double> (kWindowWidth)
                                          / static_cast<double> (kWindowHeight));
     setSize (kWindowWidth, kWindowHeight);
-    startTimerHz (30);
+
+    // Sync UI updates to the display's vertical blank for native-rate animation
+    // (60 Hz, 120 Hz ProMotion, 144 Hz, etc. — follows the monitor).
+    vblankAttachment = juce::VBlankAttachment (this, [this] (double ts) { onFrameTick (ts); });
 }
 
 TillySynthEditor::~TillySynthEditor()
 {
-    stopTimer();
     setLookAndFeel (nullptr);
 }
 
@@ -2228,23 +2230,51 @@ void TillySynthEditor::layoutMasterSection (juce::Rectangle<int> area)
 //  Timer
 // ============================================================
 
-void TillySynthEditor::timerCallback()
+void TillySynthEditor::onFrameTick (double timestampSec)
 {
+    // Frame delta for rate-independent animation (60/120/144 Hz all feel the same).
+    double dt = (lastFrameTimeSec > 0.0) ? juce::jlimit (0.001, 0.1, timestampSec - lastFrameTimeSec)
+                                         : 1.0 / 60.0;
+    lastFrameTimeSec = timestampSec;
+
+    auto iirCoef = [dt] (double timeConstantSec)
+    {
+        return static_cast<float> (1.0 - std::exp (-dt / timeConstantSec));
+    };
+
     // VU meter ballistics
     float targetL = processorRef.outputLevelLeft.load();
     float targetR = processorRef.outputLevelRight.load();
-    float attack = 0.3f;
-    float release = 0.05f;
+    float attack  = iirCoef (0.094);  // preserves prior feel at any refresh rate
+    float release = iirCoef (0.65);
     vuLeft  += (targetL > vuLeft)  ? (targetL - vuLeft)  * attack : (targetL - vuLeft)  * release;
     vuRight += (targetR > vuRight) ? (targetR - vuRight) * attack : (targetR - vuRight) * release;
 
-    // Copy scope buffer
+    // Copy scope buffer with frame-rate-independent smoothing to reduce jitter
+    const float scopeAlpha = iirCoef (0.012); // ~12 ms time constant
     int writePos = processorRef.scopeWritePos.load();
     for (int i = 0; i < TillySynthProcessor::kScopeBufferSize; ++i)
     {
         int idx = (writePos + i) % TillySynthProcessor::kScopeBufferSize;
-        scopeSnapshot[static_cast<size_t> (i)] = processorRef.scopeBuffer[static_cast<size_t> (idx)].load();
+        float newSample = processorRef.scopeBuffer[static_cast<size_t> (idx)].load();
+        scopeSnapshot[static_cast<size_t> (i)]
+            = scopeSnapshot[static_cast<size_t> (i)] * (1.0f - scopeAlpha) + newSample * scopeAlpha;
     }
+
+    // Trigger on rising zero crossing to stabilise the display phase
+    const int triggerSearchLimit = TillySynthProcessor::kScopeBufferSize / 2;
+    int newTrigger = 0;
+    for (int i = 1; i < triggerSearchLimit; ++i)
+    {
+        float prev = scopeSnapshot[static_cast<size_t> (i - 1)];
+        float curr = scopeSnapshot[static_cast<size_t> (i)];
+        if (prev <= 0.0f && curr > 0.0f)
+        {
+            newTrigger = i;
+            break;
+        }
+    }
+    scopeTriggerOffset = newTrigger;
 
     // Drift tooltip
     {
@@ -2286,14 +2316,15 @@ void TillySynthEditor::timerCallback()
 
         driftLabel.setTooltip (tip);
 
-        // Evolve drift noise
+        // Evolve drift noise (rate-independent via frame dt)
         float driftAmount = processorRef.getAPVTS().getRawParameterValue ("master_analog_drift")->load() / 100.0f;
         float scaledDrift = driftAmount * driftAmount;
+        const float driftAlpha = iirCoef (0.2); // ~200 ms time constant
         auto& rng = juce::Random::getSystemRandom();
         for (size_t i = 0; i < driftNoise.size(); ++i)
         {
             float target = (rng.nextFloat() * 2.0f - 1.0f) * 0.30f * scaledDrift;
-            driftNoise[i] = driftNoise[i] * 0.85f + target * 0.15f;
+            driftNoise[i] = driftNoise[i] * (1.0f - driftAlpha) + target * driftAlpha;
         }
     }
 
@@ -2392,16 +2423,20 @@ void TillySynthEditor::drawDriftScope (juce::Graphics& g, juce::Rectangle<int> b
         g.drawLine (scopeX, hy, scopeX + scopeW, hy, 0.5f);
     }
 
-    // Waveform path
+    // Waveform path (trigger-aligned for stability)
     juce::Path wavePath;
-    int numPoints = TillySynthProcessor::kScopeBufferSize;
-    float xStep = scopeW / static_cast<float> (numPoints - 1);
+    const int bufSize = TillySynthProcessor::kScopeBufferSize;
+    const int numPoints = bufSize - bufSize / 2;
+    const float xStep = scopeW / static_cast<float> (numPoints - 1);
 
     for (int i = 0; i < numPoints; ++i)
     {
-        float sample = scopeSnapshot[static_cast<size_t> (i)];
+        int srcIdx = scopeTriggerOffset + i;
+        if (srcIdx >= bufSize) srcIdx = bufSize - 1;
+
+        float sample = scopeSnapshot[static_cast<size_t> (srcIdx)];
         sample = juce::jlimit (-1.0f, 1.0f, sample * 4.0f);
-        sample += driftNoise[static_cast<size_t> (i)];
+        sample += driftNoise[static_cast<size_t> (srcIdx)];
 
         float px = scopeX + static_cast<float> (i) * xStep;
         float py = centreY - sample * scopeH * 0.45f;
