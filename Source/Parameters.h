@@ -102,7 +102,6 @@ namespace ParamIDs
 
     // Chorus
     inline constexpr const char* chorusMode        = "chorus_mode";
-    inline constexpr const char* chorusRate        = "chorus_rate";
     inline constexpr const char* chorusDepth       = "chorus_depth";
 
     // Reverb

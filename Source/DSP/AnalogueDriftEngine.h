@@ -11,8 +11,8 @@ class AnalogueDriftEngine : private juce::Timer
 {
 public:
     static constexpr int kMaxVoices = 16;
-    static constexpr float kMaxPitchDriftCents = 22.5f;
-    static constexpr float kMaxCutoffDriftHz = 12.0f;
+    static constexpr float kMaxPitchDriftCents = 45.0f;
+    static constexpr float kMaxCutoffDriftHz = 24.0f;
 
     AnalogueDriftEngine();
     ~AnalogueDriftEngine() override;

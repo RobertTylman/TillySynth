@@ -679,6 +679,8 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
     // Master volume slider in header
     masterVolumeSlider.setSliderStyle (juce::Slider::LinearHorizontal);
     masterVolumeSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
+    masterVolumeSlider.setPopupDisplayEnabled (true, false, this);
+    masterVolumeSlider.setTextValueSuffix ("%");
     masterVolumeSlider.setTooltip ("Master output volume");
     addAndMakeVisible (masterVolumeSlider);
     masterVolumeAttachment = std::make_unique<SliderAttachment> (
@@ -698,6 +700,8 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
 
     driftBarKnob.setSliderStyle (juce::Slider::LinearHorizontal);
     driftBarKnob.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
+    driftBarKnob.setPopupDisplayEnabled (true, false, this);
+    driftBarKnob.setTextValueSuffix ("%");
     driftBarKnob.setTooltip ("Analogue drift amount");
     addAndMakeVisible (driftBarKnob);
     driftBarKnobAttachment = std::make_unique<SliderAttachment> (
@@ -841,9 +845,54 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
     }
 
     // --- Chorus ---
-    combos["chorus_mode"] = createCombo ("chorus_mode", "Mode", { "Off", "I", "II", "I+II" });
-    knobs["chorus_rate"]  = createKnob ("chorus_rate", "Rate");
-    knobs["chorus_depth"] = createKnob ("chorus_depth", "Depth");
+    knobs["chorus_depth"] = createKnob ("chorus_depth", "Dry/Wet");
+
+    chorusModeLabel.setText ("Mode", juce::dontSendNotification);
+    chorusModeLabel.setJustificationType (juce::Justification::centred);
+    chorusModeLabel.setFont (juce::Font (juce::FontOptions (10.0f)));
+    addAndMakeVisible (chorusModeLabel);
+
+    auto setupChorusModeButton = [this] (juce::TextButton& button)
+    {
+        button.setClickingTogglesState (true);
+        addAndMakeVisible (button);
+    };
+
+    setupChorusModeButton (chorusModeIButton);
+    setupChorusModeButton (chorusModeIIButton);
+    setupChorusModeButton (chorusModeBothButton);
+
+    auto* chorusModeParam = processorRef.getAPVTS().getParameter ("chorus_mode");
+    if (chorusModeParam != nullptr)
+    {
+        chorusModeAttachment = std::make_unique<juce::ParameterAttachment> (
+            *chorusModeParam,
+            [this] (float newValue)
+            {
+                int modeValue = static_cast<int> (std::round (newValue));
+                updateChorusModeButtons (modeValue);
+            },
+            nullptr);
+
+        auto setModeValue = [this] (int modeValue)
+        {
+            if (chorusModeAttachment != nullptr)
+                chorusModeAttachment->setValueAsCompleteGesture (static_cast<float> (modeValue));
+        };
+
+        chorusModeIButton.onClick = [setModeValue] { setModeValue (1); };
+        chorusModeIIButton.onClick = [setModeValue] { setModeValue (2); };
+        chorusModeBothButton.onClick = [setModeValue] { setModeValue (3); };
+
+        chorusModeAttachment->sendInitialUpdate();
+
+        // Normalize legacy "Off" (0) to Mode I so one mode is always selected.
+        if (auto* raw = processorRef.getAPVTS().getRawParameterValue ("chorus_mode");
+            raw != nullptr && raw->load() < 1.0f)
+        {
+            chorusModeParam->setValueNotifyingHost (chorusModeParam->convertTo0to1 (1.0f));
+        }
+    }
 
     // --- Reverb ---
     knobs["reverb_size"]    = createKnob ("reverb_size", "Size");
@@ -1008,9 +1057,10 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
     setKnobTip ("modrange_lfo2_rate", "Max LFO 2 rate modulation range in Hz");
     setKnobTip ("modrange_lfo3_rate", "Max LFO 3 rate modulation range in Hz");
 
-    setComboTip ("chorus_mode", "Chorus mode: Off, I, II, or I+II (Juno-style)");
-    setKnobTip ("chorus_rate", "Chorus LFO speed");
-    setKnobTip ("chorus_depth", "Chorus modulation depth");
+    chorusModeIButton.setTooltip ("Chorus mode I: mild chorus");
+    chorusModeIIButton.setTooltip ("Chorus mode II: deeper, richer chorus");
+    chorusModeBothButton.setTooltip ("Chorus mode I+II: fast, Leslie-like shimmer");
+    setKnobTip ("chorus_depth", "Chorus dry/wet balance");
 
     setKnobTip ("reverb_size", "Reverb room size (small to large)");
     setKnobTip ("reverb_damping", "High-frequency damping in reverb tail");
@@ -1085,6 +1135,7 @@ TillySynthEditor::KnobWithLabel TillySynthEditor::createKnob (const juce::String
     KnobWithLabel kwl;
     kwl.slider = std::make_unique<juce::Slider> (juce::Slider::RotaryHorizontalVerticalDrag,
                                                   juce::Slider::NoTextBox);
+    kwl.slider->setPopupDisplayEnabled (true, false, this);
     kwl.label = std::make_unique<juce::Label> ("", labelText);
     kwl.label->setJustificationType (juce::Justification::centred);
     kwl.label->setFont (juce::Font (juce::FontOptions (10.0f)));
@@ -1094,6 +1145,14 @@ TillySynthEditor::KnobWithLabel TillySynthEditor::createKnob (const juce::String
 
     kwl.attachment = std::make_unique<SliderAttachment> (processorRef.getAPVTS(),
                                                           paramId, *kwl.slider);
+
+    if (auto* param = processorRef.getAPVTS().getParameter (paramId))
+    {
+        auto suffix = param->getLabel();
+        if (suffix.isNotEmpty())
+            kwl.slider->setTextValueSuffix (suffix == "%" ? "%" : " " + suffix);
+    }
+
     return kwl;
 }
 
@@ -1130,6 +1189,17 @@ TillySynthEditor::ToggleWithLabel TillySynthEditor::createToggle (const juce::St
     twl.attachment = std::make_unique<ButtonAttachment> (processorRef.getAPVTS(),
                                                           paramId, *twl.button);
     return twl;
+}
+
+void TillySynthEditor::updateChorusModeButtons (int modeValue)
+{
+    // We expose only I / II / I+II in the UI.
+    if (modeValue < 1 || modeValue > 3)
+        modeValue = 1;
+
+    chorusModeIButton.setToggleState (modeValue == 1, juce::dontSendNotification);
+    chorusModeIIButton.setToggleState (modeValue == 2, juce::dontSendNotification);
+    chorusModeBothButton.setToggleState (modeValue == 3, juce::dontSendNotification);
 }
 
 // ============================================================
@@ -2008,6 +2078,11 @@ void TillySynthEditor::setModMatrixVisible (bool visible)
         if (ws != nullptr) ws->setVisible (synthVisible);
     }
 
+    chorusModeLabel.setVisible (synthVisible);
+    chorusModeIButton.setVisible (synthVisible);
+    chorusModeIIButton.setVisible (synthVisible);
+    chorusModeBothButton.setVisible (synthVisible);
+
     if (osc1AdsrDisplay != nullptr)    osc1AdsrDisplay->setVisible (synthVisible);
     if (osc2AdsrDisplay != nullptr)    osc2AdsrDisplay->setVisible (synthVisible);
     if (noiseAdsrDisplay != nullptr)   noiseAdsrDisplay->setVisible (synthVisible);
@@ -2060,17 +2135,16 @@ void TillySynthEditor::layoutEffectsSection (juce::Rectangle<int> area)
 
     chorusArea.removeFromTop (scaleInt (scale, 15)); // label space (3 padding + 12 label)
     auto chorusRow = chorusArea.removeFromTop (knobH);
-    int chorusColW = chorusArea.getWidth() / 3;
+    int chorusColW = chorusArea.getWidth() / 2;
 
     auto modeCol = chorusRow.removeFromLeft (chorusColW);
-    if (combos.count ("chorus_mode"))
-    {
-        combos["chorus_mode"].combo->setBounds (modeCol.removeFromTop (smallKnobSize)
-                                                    .reduced (scaleInt (scale, 4), scaleInt (scale, 8)));
-        combos["chorus_mode"].label->setBounds (modeCol.removeFromTop (labelHeight));
-    }
+    auto modeButtonsArea = modeCol.removeFromTop (smallKnobSize).reduced (scaleInt (scale, 2), scaleInt (scale, 8));
+    const int modeButtonW = modeButtonsArea.getWidth() / 3;
+    chorusModeIButton.setBounds (modeButtonsArea.removeFromLeft (modeButtonW).reduced (1));
+    chorusModeIIButton.setBounds (modeButtonsArea.removeFromLeft (modeButtonW).reduced (1));
+    chorusModeBothButton.setBounds (modeButtonsArea.reduced (1));
+    chorusModeLabel.setBounds (modeCol.removeFromTop (labelHeight));
 
-    placeKnob ("chorus_rate", chorusRow, chorusColW);
     placeKnob ("chorus_depth", chorusRow, chorusColW);
 
     // --- Reverb sub-section ---
@@ -2218,7 +2292,7 @@ void TillySynthEditor::timerCallback()
         auto& rng = juce::Random::getSystemRandom();
         for (size_t i = 0; i < driftNoise.size(); ++i)
         {
-            float target = (rng.nextFloat() * 2.0f - 1.0f) * 0.15f * scaledDrift;
+            float target = (rng.nextFloat() * 2.0f - 1.0f) * 0.30f * scaledDrift;
             driftNoise[i] = driftNoise[i] * 0.85f + target * 0.15f;
         }
     }

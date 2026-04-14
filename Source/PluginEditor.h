@@ -157,6 +157,7 @@ private:
     void layoutModEnvSection (juce::Rectangle<int> area, const juce::String& prefix);
     void layoutEffectsSection (juce::Rectangle<int> area);
     void layoutMasterSection (juce::Rectangle<int> area);
+    void updateChorusModeButtons (int modeValue);
 
     void cycleColourTheme();
 
@@ -230,6 +231,13 @@ private:
 
     // Tooltip window for parameter descriptions (instant on hover)
     juce::TooltipWindow tooltipWindow { this, 200 };
+
+    // Chorus mode controls (three mutually-exclusive buttons).
+    juce::Label chorusModeLabel;
+    juce::TextButton chorusModeIButton { "I" };
+    juce::TextButton chorusModeIIButton { "II" };
+    juce::TextButton chorusModeBothButton { "I+II" };
+    std::unique_ptr<juce::ParameterAttachment> chorusModeAttachment;
 
     // UI components stored by param ID
     std::map<juce::String, KnobWithLabel> knobs;

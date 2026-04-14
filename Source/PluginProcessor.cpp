@@ -307,7 +307,6 @@ void TillySynthProcessor::updateParametersFromAPVTS()
 
     // Chorus
     chorus.setMode (static_cast<ChorusMode> (getInt (ParamIDs::chorusMode)));
-    chorus.setRate (getFloat (ParamIDs::chorusRate));
     chorus.setDepth (getFloat (ParamIDs::chorusDepth) / 100.0f);
 
     // Reverb

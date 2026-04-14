@@ -46,7 +46,7 @@ static Preset makePreset (const juce::String& name, const juce::String& category
         { "modenv2_dest_cutoff", 0 }, { "modenv2_dest_resonance", 0 },
         { "modenv2_dest_pitch", 0 }, { "modenv2_dest_volume", 0 },
 
-        { "chorus_mode", 0 }, { "chorus_rate", 0.5f }, { "chorus_depth", 50 },
+        { "chorus_mode", 1 }, { "chorus_depth", 50 },
 
         { "reverb_size", 50 }, { "reverb_damping", 50 }, { "reverb_mix", 0 }, { "reverb_width", 100 },
 
@@ -667,7 +667,7 @@ void PresetManager::buildFactoryPresets()
         { "osc2_waveform", 2 }, { "osc2_pulse_width", 40 }, { "osc2_level", 60 },
         { "osc2_attack", 100 }, { "osc2_sustain", 85 }, { "osc2_release", 400 },
         { "filter_cutoff", 5000 }, { "filter_resonance", 15 },
-        { "chorus_mode", 3 }, { "chorus_depth", 80 }, { "chorus_rate", 1.0f },
+        { "chorus_mode", 3 }, { "chorus_depth", 80 },
         { "master_analog_drift", 15 },
         { "reverb_size", 55 }, { "reverb_mix", 20 },
         { "noise_level", 5 }, { "noise_attack", 100 }, { "noise_sustain", 40 }, { "noise_release", 400 }

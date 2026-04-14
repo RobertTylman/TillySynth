@@ -75,7 +75,7 @@ float PresetVariantGenerator::mutateValue (const juce::String& paramId, float cu
     if (paramId == "filter_cutoff")
         return mutateFloat (currentValue, 20.0f, 20000.0f, 0.22f, random);
 
-    if (paramId == "lfo1_rate" || paramId == "lfo2_rate" || paramId == "chorus_rate")
+    if (paramId == "lfo1_rate" || paramId == "lfo2_rate")
         return mutateFloat (currentValue, 0.01f, 20.0f, 0.18f, random);
 
     if (paramId == "noise_sh_rate")
