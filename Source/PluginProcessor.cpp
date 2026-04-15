@@ -172,6 +172,17 @@ void TillySynthProcessor::updateParametersFromAPVTS()
     auto getFloat = [this] (const char* id) { return apvts.getRawParameterValue (id)->load(); };
     auto getInt   = [this] (const char* id) { return static_cast<int> (apvts.getRawParameterValue (id)->load()); };
     auto getBool  = [this] (const char* id) { return apvts.getRawParameterValue (id)->load() > 0.5f; };
+    auto getFilterSlope = [&getInt] (const char* id) -> FilterSlope
+    {
+        switch (getInt (id))
+        {
+            case 0:  return FilterSlope::dB6;
+            case 1:  return FilterSlope::dB12;
+            case 2:  return FilterSlope::dB24;
+            case 3:  return FilterSlope::dB36;
+            default: return FilterSlope::dB24;
+        }
+    };
 
     // Master unison applies to both oscillators
     int masterUni = getInt (ParamIDs::masterUnison);
@@ -228,7 +239,7 @@ void TillySynthProcessor::updateParametersFromAPVTS()
     voiceManager.updateFilterParams (
         static_cast<FilterMode> (getInt (ParamIDs::filterMode)),
         static_cast<FilterModel> (getInt (ParamIDs::filterModel)),
-        getInt (ParamIDs::filterSlope) == 1,
+        getFilterSlope (ParamIDs::filterSlope),
         getFloat (ParamIDs::filterCutoff),
         getFloat (ParamIDs::filterResonance) / 100.0f,
         getFloat (ParamIDs::filterEnvAmount) / 100.0f,

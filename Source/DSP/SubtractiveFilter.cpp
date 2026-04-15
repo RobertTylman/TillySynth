@@ -19,6 +19,7 @@ void SubtractiveFilter::prepare (double sampleRate, int samplesPerBlock)
 
     filter1.prepare (spec);
     filter2.prepare (spec);
+    filter3.prepare (spec);
     ladderFilter.prepare (spec);
 
     vintageState.fill (0.0f);
@@ -31,6 +32,7 @@ void SubtractiveFilter::reset()
 {
     filter1.reset();
     filter2.reset();
+    filter3.reset();
     ladderFilter.reset();
     smoothedCutoffHz = targetCutoffHz;
     updateCounter = 0;
@@ -53,10 +55,27 @@ float SubtractiveFilter::processSample (float input)
                 updateCoefficients();
             }
 
+            int stages = 1;
+            switch (slope)
+            {
+                case FilterSlope::dB24: stages = 2; break;
+                case FilterSlope::dB36: stages = 3; break;
+                case FilterSlope::dB12:
+                case FilterSlope::dB6:
+                default:                stages = 1; break;
+            }
+
             float output = filter1.processSample (input);
 
-            if (use24dB)
+            if (stages >= 2)
                 output = filter2.processSample (output);
+            if (stages >= 3)
+                output = filter3.processSample (output);
+
+            if (! std::isfinite (output))
+                return 0.0f;
+
+            output = juce::jlimit (-4.0f, 4.0f, output);
 
             return output;
         }
@@ -87,7 +106,15 @@ float SubtractiveFilter::processVintageSample (float input)
     float k = resonance * 3.6f;
 
     // Number of active stages depends on slope setting
-    int stages = use24dB ? 4 : 2;
+    int stages = 2;
+    switch (slope)
+    {
+        case FilterSlope::dB6:  stages = 1; break;
+        case FilterSlope::dB12: stages = 2; break;
+        case FilterSlope::dB24: stages = 4; break;
+        case FilterSlope::dB36: stages = 6; break;
+        default:                stages = 2; break;
+    }
 
     // Feedback from last active stage — soft-clipped for warmth
     float fb = std::tanh (vintageFeedback * k);
@@ -141,9 +168,10 @@ void SubtractiveFilter::setModel (FilterModel m)
     model = m;
 }
 
-void SubtractiveFilter::setSlope24dB (bool is24dB)
+void SubtractiveFilter::setSlope (FilterSlope s)
 {
-    use24dB = is24dB;
+    slope = s;
+    updateCoefficients();
     updateLadderMode();
 }
 
@@ -151,7 +179,9 @@ void SubtractiveFilter::updateLadderMode()
 {
     using LM = juce::dsp::LadderFilterMode;
 
-    if (use24dB)
+    bool use24 = (slope == FilterSlope::dB24 || slope == FilterSlope::dB36);
+
+    if (use24)
     {
         switch (mode)
         {
@@ -175,33 +205,65 @@ void SubtractiveFilter::updateLadderMode()
 
 void SubtractiveFilter::updateCoefficients()
 {
-    // Map resonance 0-1 to Q 0.5-20
-    float q = 0.5f + resonance * 19.5f;
+    // Map resonance 0-1 to Q with a gentler curve to avoid unstable
+    // self-oscillation when multiple stages are cascaded.
+    float q = 0.5f + (resonance * resonance) * 9.5f;
+    if (slope == FilterSlope::dB24)
+        q = juce::jmin (q, 4.0f);
+    else if (slope == FilterSlope::dB36)
+        q = juce::jmin (q, 2.5f);
 
     float cutoff = juce::jlimit (20.0f, 20000.0f, smoothedCutoffHz);
 
-    juce::dsp::IIR::Coefficients<float>::Ptr coeffs;
-
-    switch (mode)
+    auto makeCoeffs = [this, cutoff] (float stageQ) -> juce::dsp::IIR::Coefficients<float>::Ptr
     {
-        case FilterMode::LowPass:
-            coeffs = juce::dsp::IIR::Coefficients<float>::makeLowPass (currentSampleRate, cutoff, q);
-            break;
-        case FilterMode::HighPass:
-            coeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass (currentSampleRate, cutoff, q);
-            break;
-        case FilterMode::BandPass:
-            coeffs = juce::dsp::IIR::Coefficients<float>::makeBandPass (currentSampleRate, cutoff, q);
-            break;
-        case FilterMode::Notch:
-            coeffs = juce::dsp::IIR::Coefficients<float>::makeNotch (currentSampleRate, cutoff, q);
-            break;
+        switch (mode)
+        {
+            case FilterMode::LowPass:
+                return juce::dsp::IIR::Coefficients<float>::makeLowPass (currentSampleRate, cutoff, stageQ);
+            case FilterMode::HighPass:
+                return juce::dsp::IIR::Coefficients<float>::makeHighPass (currentSampleRate, cutoff, stageQ);
+            case FilterMode::BandPass:
+                return juce::dsp::IIR::Coefficients<float>::makeBandPass (currentSampleRate, cutoff, stageQ);
+            case FilterMode::Notch:
+                return juce::dsp::IIR::Coefficients<float>::makeNotch (currentSampleRate, cutoff, stageQ);
+        }
+
+        return {};
+    };
+
+    juce::dsp::IIR::Coefficients<float>::Ptr coeffs;
+    bool firstOrder = (slope == FilterSlope::dB6)
+                   && (mode == FilterMode::LowPass || mode == FilterMode::HighPass);
+
+    if (firstOrder)
+    {
+        if (mode == FilterMode::LowPass)
+            coeffs = juce::dsp::IIR::Coefficients<float>::makeFirstOrderLowPass (currentSampleRate, cutoff);
+        else
+            coeffs = juce::dsp::IIR::Coefficients<float>::makeFirstOrderHighPass (currentSampleRate, cutoff);
+    }
+    else
+    {
+        coeffs = makeCoeffs (q);
     }
 
     if (coeffs != nullptr)
     {
         *filter1.coefficients = *coeffs;
-        *filter2.coefficients = *coeffs;
+
+        // Keep additional stages near Butterworth to prevent runaway peaks.
+        auto shapingCoeffs = firstOrder ? coeffs : makeCoeffs (0.7071f);
+        if (shapingCoeffs != nullptr)
+        {
+            *filter2.coefficients = *shapingCoeffs;
+            *filter3.coefficients = *shapingCoeffs;
+        }
+        else
+        {
+            *filter2.coefficients = *coeffs;
+            *filter3.coefficients = *coeffs;
+        }
     }
 }
 

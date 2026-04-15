@@ -1,4 +1,5 @@
 #include "VoiceManager.h"
+#include <limits>
 
 namespace tillysynth
 {
@@ -35,6 +36,8 @@ void VoiceManager::reset()
 
 void VoiceManager::handleNoteOn (int midiNote, float velocity)
 {
+    velocity = juce::jlimit (0.0f, 1.0f, velocity);
+
     if (monoLegato)
     {
         bool wasPlaying = heldNoteCount > 0;
@@ -279,13 +282,13 @@ void VoiceManager::updateNoiseEnv (float attack, float decay, float sustain, flo
         voice.setNoiseEnvParams (attack, decay, sustain, release);
 }
 
-void VoiceManager::updateFilterParams (FilterMode mode, FilterModel model, bool is24dB,
+void VoiceManager::updateFilterParams (FilterMode mode, FilterModel model, FilterSlope slope,
                                         float cutoff, float resonance,
                                         float envAmount, float keyTracking, float velocity,
                                         FilterTarget target)
 {
     for (auto& voice : voices)
-        voice.setFilterParams (mode, model, is24dB, cutoff, resonance, envAmount, keyTracking, velocity, target);
+        voice.setFilterParams (mode, model, slope, cutoff, resonance, envAmount, keyTracking, velocity, target);
 }
 
 void VoiceManager::updateLFO1 (Waveform wf, float rate, float depth,
@@ -336,7 +339,16 @@ void VoiceManager::updateModEnv2 (float attack, float decay, float sustain, floa
 
 void VoiceManager::setMaxPolyphony (int voices_)
 {
-    maxPolyphony = juce::jlimit (1, kMaxVoices, voices_);
+    int newMax = juce::jlimit (1, kMaxVoices, voices_);
+    if (newMax < maxPolyphony)
+    {
+        // Clear voices that are no longer in the active pool so they cannot
+        // become hidden/stuck when polyphony is reduced and later increased.
+        for (int i = newMax; i < kMaxVoices; ++i)
+            voices[static_cast<size_t> (i)].reset();
+    }
+
+    maxPolyphony = newMax;
 }
 
 void VoiceManager::setMonoLegato (bool enabled)
@@ -392,19 +404,39 @@ int VoiceManager::findFreeVoice() const
 
 int VoiceManager::findOldestVoice() const
 {
-    int oldest = 0;
-    int oldestOrder = voices[0].getNoteStartOrder();
+    int oldestReleased = -1;
+    int oldestReleasedOrder = std::numeric_limits<int>::max();
+    int oldestHeld = -1;
+    int oldestHeldOrder = std::numeric_limits<int>::max();
 
-    for (int i = 1; i < maxPolyphony; ++i)
+    for (int i = 0; i < maxPolyphony; ++i)
     {
-        if (voices[static_cast<size_t> (i)].getNoteStartOrder() < oldestOrder)
+        const auto& voice = voices[static_cast<size_t> (i)];
+        if (! voice.isActive())
+            continue;
+
+        int order = voice.getNoteStartOrder();
+        if (! voice.isNoteHeld())
         {
-            oldest = i;
-            oldestOrder = voices[static_cast<size_t> (i)].getNoteStartOrder();
+            if (order < oldestReleasedOrder)
+            {
+                oldestReleased = i;
+                oldestReleasedOrder = order;
+            }
+        }
+        else if (order < oldestHeldOrder)
+        {
+            oldestHeld = i;
+            oldestHeldOrder = order;
         }
     }
 
-    return oldest;
+    if (oldestReleased >= 0)
+        return oldestReleased;
+    if (oldestHeld >= 0)
+        return oldestHeld;
+
+    return 0;
 }
 
 int VoiceManager::findVoicePlayingNote (int midiNote) const

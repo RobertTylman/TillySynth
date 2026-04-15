@@ -22,8 +22,8 @@ void SynthVoice::prepare (double sr, int samplesPerBlock)
     osc2Filter.prepare (sr, samplesPerBlock);
     noiseFilter.prepare (sr, samplesPerBlock);
 
-    // ~2ms fade-out for voice stealing
-    stealFadeDecrement = 1.0f / static_cast<float> (sr * 0.002);
+    // ~1 ms smoothing for retrigger discontinuities.
+    clickSuppressDecay = std::exp (-1.0f / static_cast<float> (sr * 0.001));
 }
 
 void SynthVoice::reset()
@@ -41,11 +41,18 @@ void SynthVoice::reset()
     osc2Filter.reset();
     noiseFilter.reset();
     currentNote = -1;
+    currentVelocity = 0.0f;
     noteHeld = false;
+    currentGlideNote = -1.0f;
+    retriggeredWhileActive = false;
+    clickSuppressOffset = 0.0f;
+    lastOutputSample = 0.0f;
 }
 
 void SynthVoice::noteOn (int midiNote, float velocity, bool legatoRetrigger)
 {
+    velocity = juce::jlimit (0.0f, 1.0f, velocity);
+
     if (legatoRetrigger)
     {
         currentNote = midiNote;
@@ -54,18 +61,10 @@ void SynthVoice::noteOn (int midiNote, float velocity, bool legatoRetrigger)
         return;
     }
 
-    // If voice is currently active, initiate a quick fade-out before retriggering
-    if (isActive() && ! stealing)
-    {
-        stealing = true;
-        stealFadeLevel = 1.0f;
-        pendingNote = midiNote;
-        pendingVelocity = velocity;
-        return;
-    }
+    retriggeredWhileActive = isActive();
 
     // Set glide starting point from previous note if glide is active
-    if (glideCoeff < 1.0f && currentNote >= 0)
+    if (glideCoeff < 1.0f && currentNote >= 0 && isActive())
         currentGlideNote = static_cast<float> (currentNote);
     else
         currentGlideNote = static_cast<float> (midiNote);
@@ -73,8 +72,6 @@ void SynthVoice::noteOn (int midiNote, float velocity, bool legatoRetrigger)
     currentNote = midiNote;
     currentVelocity = velocity;
     noteHeld = true;
-    stealing = false;
-    stealFadeLevel = 1.0f;
 
     ampEnv1.noteOn();
     ampEnv2.noteOn();
@@ -107,45 +104,11 @@ float SynthVoice::processSample (float lfoFilterMod, float lfoPitchMod,
                                   float driftPitchCents, float driftCutoffHz,
                                   const ModulationOutput& matrixMod)
 {
-    if (! isActive() && ! stealing)
-        return 0.0f;
-
-    // Handle voice stealing fade-out
-    if (stealing)
+    if (! isActive())
     {
-        stealFadeLevel -= stealFadeDecrement;
-        if (stealFadeLevel <= 0.0f)
-        {
-            // Fade complete — retrigger with pending note
-            stealFadeLevel = 1.0f;
-            stealing = false;
-
-            currentNote = pendingNote;
-            currentVelocity = pendingVelocity;
-            noteHeld = true;
-
-            ampEnv1.reset();
-            ampEnv2.reset();
-            noiseEnv.reset();
-            filterEnv.reset();
-            modEnv1.reset();
-            modEnv2.reset();
-            osc1.reset();
-            osc2.reset();
-            noiseOsc.reset();
-            osc1Filter.reset();
-            osc2Filter.reset();
-            noiseFilter.reset();
-
-            ampEnv1.noteOn();
-            ampEnv2.noteOn();
-            noiseEnv.noteOn();
-            filterEnv.noteOn();
-            modEnv1.noteOn();
-            modEnv2.noteOn();
-
-            return 0.0f;
-        }
+        lastOutputSample = 0.0f;
+        clickSuppressOffset = 0.0f;
+        return 0.0f;
     }
 
     // Apply glide (portamento) — smoothly interpolate the note number
@@ -269,15 +232,31 @@ float SynthVoice::processSample (float lfoFilterMod, float lfoPitchMod,
     // Soft-clip to tame volume spikes from heavy modulation or resonance
     output = std::tanh (output);
 
-    if (stealing)
-        output *= stealFadeLevel;
+    if (retriggeredWhileActive)
+    {
+        // Force continuity with previous sample, then decay the correction.
+        clickSuppressOffset = lastOutputSample - output;
+        retriggeredWhileActive = false;
+    }
+
+    if (std::abs (clickSuppressOffset) > 1.0e-6f)
+    {
+        output += clickSuppressOffset;
+        clickSuppressOffset *= clickSuppressDecay;
+    }
+    else
+    {
+        clickSuppressOffset = 0.0f;
+    }
+
+    lastOutputSample = output;
 
     return output;
 }
 
 bool SynthVoice::isActive() const
 {
-    return stealing || ampEnv1.isActive() || ampEnv2.isActive() || noiseEnv.isActive();
+    return ampEnv1.isActive() || ampEnv2.isActive() || noiseEnv.isActive();
 }
 
 void SynthVoice::setOsc1Params (Waveform wf, int octave, int semitone, float fineTuneCents,
@@ -325,7 +304,8 @@ void SynthVoice::setAmpEnv2Params (float attackMs, float decayMs, float sustain0
 void SynthVoice::setNoiseParams (NoiseType type, float level01, float shRateHz)
 {
     noiseOsc.setNoiseType (type);
-    noiseOsc.setLevel (level01);
+    // Cap noise generator gain so full knob equals previous 50%.
+    noiseOsc.setLevel (juce::jlimit (0.0f, 1.0f, level01) * 0.5f);
     noiseOsc.setSHRate (shRateHz);
 }
 
@@ -339,7 +319,7 @@ void SynthVoice::setFilterEnvParams (float attackMs, float decayMs, float sustai
     filterEnv.setParameters (attackMs, decayMs, sustain01, releaseMs);
 }
 
-void SynthVoice::setFilterParams (FilterMode mode, FilterModel model, bool is24dB,
+void SynthVoice::setFilterParams (FilterMode mode, FilterModel model, FilterSlope slope,
                                    float cutoffHz, float resonance01,
                                    float envAmount, float keyTracking01, float velocity01,
                                    FilterTarget target)
@@ -348,7 +328,7 @@ void SynthVoice::setFilterParams (FilterMode mode, FilterModel model, bool is24d
     {
         filter->setMode (mode);
         filter->setModel (model);
-        filter->setSlope24dB (is24dB);
+        filter->setSlope (slope);
         filter->setResonance (resonance01);
     }
 

@@ -51,7 +51,7 @@ public:
     void setNoiseEnvParams (float attackMs, float decayMs, float sustain01, float releaseMs);
 
     // Filter params
-    void setFilterParams (FilterMode mode, FilterModel model, bool is24dB,
+    void setFilterParams (FilterMode mode, FilterModel model, FilterSlope slope,
                           float cutoffHz, float resonance01,
                           float envAmount, float keyTracking01, float velocity01,
                           FilterTarget target);
@@ -127,14 +127,11 @@ private:
     float glideCoeff = 1.0f;
     float currentGlideNote = -1.0f;
 
-    // Voice stealing fade-out
-    bool stealing = false;
-    float stealFadeLevel = 1.0f;
-    float stealFadeDecrement = 0.0f;
-
-    // Pending note-on for after fade completes
-    int pendingNote = -1;
-    float pendingVelocity = 0.0f;
+    // De-click smoothing when a voice is retriggered while active.
+    bool retriggeredWhileActive = false;
+    float clickSuppressOffset = 0.0f;
+    float clickSuppressDecay = 0.0f;
+    float lastOutputSample = 0.0f;
 
     ModDestRanges modRanges;
 };

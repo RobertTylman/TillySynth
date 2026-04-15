@@ -748,7 +748,7 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
     // --- Filter ---
     combos["filter_model"]  = createCombo ("filter_model", "Model", { "Std", "Ladder", "Vintage" });
     combos["filter_mode"]   = createCombo ("filter_mode", "Mode", { "LP", "HP", "BP", "Notch" });
-    combos["filter_slope"]  = createCombo ("filter_slope", "Slope", { "12dB", "24dB" });
+    combos["filter_slope"]  = createCombo ("filter_slope", "Slope", { "6dB", "12dB", "24dB", "36dB" });
     combos["filter_target"] = createCombo ("filter_target", "Target", { "Osc1", "Osc2", "Both", "Noise", "All" });
     knobs["filter_cutoff"]       = createKnob ("filter_cutoff", "Cutoff");
     knobs["filter_resonance"]    = createKnob ("filter_resonance", "Reso");
@@ -994,8 +994,10 @@ TillySynthEditor::TillySynthEditor (TillySynthProcessor& p)
         "Band-pass: keeps only frequencies near the cutoff, nasal/vocal quality. "
         "Notch: cuts a narrow band at the cutoff, phaser-like hollow tone.");
     setComboTip ("filter_slope",
+        "6 dB/oct: very gentle rolloff for subtle shaping. "
         "12 dB/oct: gentler rolloff, more harmonics pass through. "
-        "24 dB/oct: steeper rolloff, more dramatic filtering.");
+        "24 dB/oct: steeper rolloff, more dramatic filtering. "
+        "36 dB/oct: very steep rolloff for tighter filtering.");
     setComboTip ("filter_target", "Choose which source the filter affects");
     setKnobTip ("filter_cutoff", "Filter cutoff frequency in Hz");
     setKnobTip ("filter_resonance", "Filter resonance / emphasis at cutoff");

@@ -43,7 +43,7 @@ public:
     void updateNoiseParams (NoiseType type, float level, float shRate);
     void updateNoiseEnv (float attack, float decay, float sustain, float release);
 
-    void updateFilterParams (FilterMode mode, FilterModel model, bool is24dB,
+    void updateFilterParams (FilterMode mode, FilterModel model, FilterSlope slope,
                              float cutoff, float resonance,
                              float envAmount, float keyTracking, float velocity,
                              FilterTarget target);

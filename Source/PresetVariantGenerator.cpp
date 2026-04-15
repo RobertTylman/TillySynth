@@ -34,7 +34,7 @@ float PresetVariantGenerator::mutateValue (const juce::String& paramId, float cu
         return static_cast<float> (mutateInt (static_cast<int> (currentValue), 0, 3, random, 0.12f));
 
     if (paramId == "filter_slope")
-        return static_cast<float> (mutateInt (static_cast<int> (currentValue), 0, 1, random, 0.12f));
+        return static_cast<float> (mutateInt (static_cast<int> (currentValue), 0, 3, random, 0.12f));
 
     if (paramId == "chorus_mode")
         return static_cast<float> (mutateInt (static_cast<int> (currentValue), 0, 3, random, 0.18f));

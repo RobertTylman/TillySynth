@@ -4,6 +4,439 @@
 namespace tillysynth
 {
 
+static void setParamValue (std::vector<std::pair<juce::String, float>>& params,
+                           const juce::String& id,
+                           float value)
+{
+    for (auto& p : params)
+    {
+        if (p.first == id)
+        {
+            p.second = value;
+            return;
+        }
+    }
+
+    params.push_back ({ id, value });
+}
+
+static float getParamValue (const std::vector<std::pair<juce::String, float>>& params,
+                            const juce::String& id,
+                            float fallback = 0.0f)
+{
+    for (const auto& p : params)
+        if (p.first == id)
+            return p.second;
+
+    return fallback;
+}
+
+static void setModSlot (std::vector<std::pair<juce::String, float>>& params,
+                        int slot,
+                        int source,
+                        int dest,
+                        float amountPercent)
+{
+    const auto slotStr = juce::String (slot);
+    setParamValue (params, "modmatrix_" + slotStr + "_source", static_cast<float> (source));
+    setParamValue (params, "modmatrix_" + slotStr + "_dest", static_cast<float> (dest));
+    setParamValue (params, "modmatrix_" + slotStr + "_amount", amountPercent);
+}
+
+static void applyPresetSpecificModMatrixProfile (const juce::String& name,
+                                                 const juce::String& category,
+                                                 std::vector<std::pair<juce::String, float>>& params)
+{
+    enum ModSourceIds
+    {
+        srcNone = 0, srcLfo1 = 1, srcLfo2 = 2, srcLfo3 = 3,
+        srcModEnv1 = 4, srcModEnv2 = 5, srcVelocity = 6,
+        srcAftertouch = 7, srcModWheel = 8
+    };
+
+    enum ModDestIds
+    {
+        dstNone = 0, dstCutoff = 1, dstResonance = 2, dstPitch = 3, dstVolume = 4,
+        dstPulseWidth = 5, dstOsc1Level = 6, dstOsc2Level = 7, dstNoiseLevel = 8,
+        dstLfo1Rate = 9, dstLfo2Rate = 10, dstLfo3Rate = 11
+    };
+
+    juce::String key = category + "|" + name;
+    const uint32_t hash = static_cast<uint32_t> (key.hashCode());
+    auto jitter = [hash] (int salt, float span)
+    {
+        uint32_t mixed = hash ^ static_cast<uint32_t> (0x9e3779b9u * static_cast<uint32_t> (salt + 1));
+        float unit = static_cast<float> (mixed & 0xffffu) / 65535.0f; // 0..1
+        return (unit * 2.0f - 1.0f) * span;
+    };
+
+    auto amount = [&jitter] (float base, int salt, float span)
+    {
+        return juce::jlimit (-100.0f, 100.0f, base + jitter (salt, span));
+    };
+
+    auto ranged = [&jitter] (float base, float lo, float hi, int salt, float span)
+    {
+        return juce::jlimit (lo, hi, base + jitter (salt, span));
+    };
+
+    auto hasToken = [&name] (std::initializer_list<const char*> tokens)
+    {
+        for (const auto* token : tokens)
+            if (name.containsIgnoreCase (token))
+                return true;
+        return false;
+    };
+
+    for (int i = 1; i <= 8; ++i)
+        setModSlot (params, i, srcNone, dstNone, 0.0f);
+
+    const float noiseLevel = getParamValue (params, "noise_level", 0.0f);
+    const float filterRes = getParamValue (params, "filter_resonance", 20.0f);
+    const float osc2Level = getParamValue (params, "osc2_level", 50.0f);
+
+    setParamValue (params, "modrange_cutoff", ranged (95.0f, 40.0f, 220.0f, 1, 12.0f));
+    setParamValue (params, "modrange_resonance", ranged (55.0f, 20.0f, 95.0f, 2, 10.0f));
+    setParamValue (params, "modrange_pitch", ranged (2.0f, 0.5f, 6.0f, 3, 0.8f));
+    setParamValue (params, "modrange_volume", ranged (35.0f, 10.0f, 80.0f, 4, 8.0f));
+    setParamValue (params, "modrange_pw", ranged (35.0f, 10.0f, 80.0f, 5, 7.0f));
+    setParamValue (params, "modrange_osc1_level", ranged (95.0f, 40.0f, 200.0f, 6, 12.0f));
+    setParamValue (params, "modrange_osc2_level", ranged (95.0f, 40.0f, 200.0f, 7, 12.0f));
+    setParamValue (params, "modrange_noise_level", ranged (100.0f, 40.0f, 200.0f, 8, 12.0f));
+    setParamValue (params, "modrange_lfo1_rate", ranged (12.0f, 2.0f, 30.0f, 9, 4.0f));
+    setParamValue (params, "modrange_lfo2_rate", ranged (12.0f, 2.0f, 30.0f, 10, 4.0f));
+    setParamValue (params, "modrange_lfo3_rate", ranged (12.0f, 2.0f, 30.0f, 11, 4.0f));
+
+    if (category.equalsIgnoreCase ("Pads"))
+    {
+        const int variant = static_cast<int> ((hash >> 3) & 0x3u);
+
+        setModSlot (params, 1, srcVelocity, dstCutoff, amount (20.0f, 12, 6.0f));
+        setModSlot (params, 2, srcModWheel, dstCutoff, amount (28.0f, 13, 7.0f));
+        setModSlot (params, 3, srcAftertouch, dstVolume, amount (10.0f, 14, 4.0f));
+        setModSlot (params, 4, srcLfo3, dstCutoff, amount (12.0f, 15, 5.0f));
+        setModSlot (params, 5, srcModEnv1, dstCutoff, amount (10.0f, 16, 4.0f));
+        setParamValue (params, "lfo3_rate", ranged (0.18f, 0.05f, 0.8f, 17, 0.08f));
+
+        switch (variant)
+        {
+            case 0:
+                setModSlot (params, 6, srcLfo1, dstCutoff, amount (14.0f, 18, 5.0f));
+                setModSlot (params, 7, srcAftertouch, dstVolume, amount (9.0f, 19, 4.0f));
+                setModSlot (params, 8, srcModWheel, dstLfo3Rate, amount (10.0f, 20, 4.0f));
+                break;
+            case 1:
+                setModSlot (params, 6, srcModEnv2, dstCutoff, amount (11.0f, 21, 4.0f));
+                setModSlot (params, 7, srcVelocity, dstVolume, amount (11.0f, 22, 4.0f));
+                setModSlot (params, 8, srcModWheel, dstLfo1Rate, amount (12.0f, 23, 5.0f));
+                break;
+            case 2:
+                setModSlot (params, 6, srcLfo1, dstPulseWidth, amount (16.0f, 24, 5.0f));
+                setModSlot (params, 7, srcAftertouch, dstCutoff, amount (9.0f, 25, 4.0f));
+                setModSlot (params, 8, srcModWheel, dstResonance, amount (8.0f, 26, 4.0f));
+                break;
+            default:
+                setModSlot (params, 6, srcLfo3, dstVolume, amount (9.0f, 27, 4.0f));
+                setModSlot (params, 7, srcModEnv1, dstResonance, amount (10.0f, 28, 4.0f));
+                setModSlot (params, 8, srcModWheel, dstCutoff, amount (18.0f, 29, 6.0f));
+                break;
+        }
+
+        if (hasToken ({ "drift", "wash", "sweep", "wind", "ocean", "space", "cosmic", "nebula", "glacial", "frozen" }))
+            setModSlot (params, 6, srcLfo1, dstCutoff, amount (18.0f, 30, 6.0f));
+
+        if (hasToken ({ "shimmer", "crystal", "glassy", "neon", "prism", "star", "sunrise" }))
+            setModSlot (params, 7, srcVelocity, dstVolume, amount (12.0f, 31, 4.0f));
+
+        if (noiseLevel > 7.0f)
+            setModSlot (params, 8, srcVelocity, dstNoiseLevel, amount (10.0f, 32, 5.0f));
+
+        setParamValue (params, "modrange_cutoff", ranged (110.0f, 60.0f, 180.0f, 33, 12.0f));
+        setParamValue (params, "modrange_resonance", ranged (45.0f, 20.0f, 70.0f, 34, 7.0f));
+        setParamValue (params, "modrange_pitch", ranged (1.4f, 0.6f, 3.0f, 35, 0.4f));
+        setParamValue (params, "modrange_volume", ranged (34.0f, 15.0f, 60.0f, 36, 6.0f));
+        return;
+    }
+
+    if (category.equalsIgnoreCase ("Leads"))
+    {
+        const int variant = static_cast<int> ((hash >> 7) & 0x3u);
+
+        setModSlot (params, 1, srcVelocity, dstCutoff, amount (34.0f, 40, 8.0f));
+        setModSlot (params, 2, srcModWheel, dstPitch, amount (24.0f, 41, 7.0f));
+        setModSlot (params, 3, srcAftertouch, dstCutoff, amount (16.0f, 42, 6.0f));
+        setModSlot (params, 4, srcAftertouch, dstResonance, amount (10.0f, 43, 5.0f));
+        setModSlot (params, 5, srcModEnv1, dstCutoff, amount (14.0f, 44, 5.0f));
+
+        switch (variant)
+        {
+            case 0:
+                setModSlot (params, 6, srcVelocity, dstResonance, amount (16.0f, 45, 6.0f));
+                setModSlot (params, 7, srcLfo1, dstPitch, amount (12.0f, 46, 5.0f));
+                setModSlot (params, 8, srcModWheel, dstLfo1Rate, amount (15.0f, 47, 6.0f));
+                break;
+            case 1:
+                setModSlot (params, 6, srcModEnv2, dstCutoff, amount (12.0f, 48, 5.0f));
+                setModSlot (params, 7, srcAftertouch, dstPitch, amount (10.0f, 49, 5.0f));
+                setModSlot (params, 8, srcModWheel, dstResonance, amount (11.0f, 50, 4.0f));
+                break;
+            case 2:
+                setModSlot (params, 6, srcVelocity, dstOsc2Level, amount (12.0f, 51, 5.0f));
+                setModSlot (params, 7, srcLfo3, dstCutoff, amount (14.0f, 52, 6.0f));
+                setModSlot (params, 8, srcModWheel, dstPitch, amount (10.0f, 53, 4.0f));
+                break;
+            default:
+                setModSlot (params, 6, srcAftertouch, dstResonance, amount (14.0f, 54, 5.0f));
+                setModSlot (params, 7, srcModEnv1, dstPitch, amount (9.0f, 55, 4.0f));
+                setModSlot (params, 8, srcModWheel, dstLfo3Rate, amount (14.0f, 56, 5.0f));
+                break;
+        }
+
+        if (hasToken ({ "acid", "squelch", "screech", "razor", "laser", "bite", "resonant" }) || filterRes > 55.0f)
+            setModSlot (params, 6, srcVelocity, dstResonance, amount (22.0f, 57, 7.0f));
+
+        if (hasToken ({ "vibrato", "whistle", "siren", "solo", "flute" }))
+            setModSlot (params, 7, srcLfo1, dstPitch, amount (18.0f, 58, 6.0f));
+
+        setParamValue (params, "modrange_cutoff", ranged (125.0f, 70.0f, 200.0f, 59, 12.0f));
+        setParamValue (params, "modrange_resonance", ranged (68.0f, 30.0f, 90.0f, 60, 8.0f));
+        setParamValue (params, "modrange_pitch", ranged (3.2f, 1.5f, 8.0f, 61, 0.7f));
+        setParamValue (params, "modrange_volume", ranged (28.0f, 12.0f, 50.0f, 62, 6.0f));
+        setParamValue (params, "modrange_pw", ranged (38.0f, 15.0f, 70.0f, 63, 7.0f));
+        return;
+    }
+
+    if (category.equalsIgnoreCase ("Bass"))
+    {
+        const int variant = static_cast<int> ((hash >> 11) & 0x3u);
+
+        setModSlot (params, 1, srcVelocity, dstCutoff, amount (30.0f, 70, 8.0f));
+        setModSlot (params, 2, srcModWheel, dstCutoff, amount (22.0f, 71, 7.0f));
+        setModSlot (params, 3, srcAftertouch, dstResonance, amount (12.0f, 72, 5.0f));
+
+        switch (variant)
+        {
+            case 0:
+                setModSlot (params, 4, srcLfo1, dstCutoff, amount (24.0f, 73, 8.0f));
+                setModSlot (params, 5, srcModWheel, dstLfo1Rate, amount (22.0f, 74, 8.0f));
+                setModSlot (params, 6, srcVelocity, dstNoiseLevel, amount (12.0f, 75, 5.0f));
+                break;
+            case 1:
+                setModSlot (params, 4, srcVelocity, dstOsc2Level, amount (10.0f, 76, 5.0f));
+                setModSlot (params, 5, srcVelocity, dstOsc1Level, amount (-8.0f, 77, 4.0f));
+                setModSlot (params, 6, srcAftertouch, dstResonance, amount (12.0f, 78, 5.0f));
+                break;
+            case 2:
+                setModSlot (params, 4, srcModEnv1, dstCutoff, amount (16.0f, 79, 6.0f));
+                setModSlot (params, 5, srcModWheel, dstCutoff, amount (16.0f, 80, 6.0f));
+                setModSlot (params, 6, srcModEnv2, dstResonance, amount (10.0f, 81, 4.0f));
+                break;
+            default:
+                setModSlot (params, 4, srcLfo3, dstCutoff, amount (18.0f, 82, 6.0f));
+                setModSlot (params, 5, srcModWheel, dstLfo3Rate, amount (18.0f, 83, 6.0f));
+                setModSlot (params, 6, srcVelocity, dstOsc2Level, amount (10.0f, 84, 4.0f));
+                break;
+        }
+
+        if (hasToken ({ "wobble", "growl", "sweep", "step", "acid", "squelch", "screech", "filtered" }))
+        {
+            setModSlot (params, 4, srcLfo1, dstCutoff, amount (26.0f, 85, 8.0f));
+            setModSlot (params, 5, srcModWheel, dstLfo1Rate, amount (22.0f, 86, 8.0f));
+        }
+        else if (osc2Level > 40.0f)
+        {
+            setModSlot (params, 5, srcVelocity, dstOsc1Level, amount (-8.0f, 87, 4.0f));
+        }
+
+        if (noiseLevel > 7.0f)
+            setModSlot (params, 6, srcVelocity, dstNoiseLevel, amount (14.0f, 88, 6.0f));
+
+        setModSlot (params, 8, srcModWheel, dstPitch, amount (8.0f, 89, 4.0f));
+
+        setParamValue (params, "modrange_cutoff", ranged (135.0f, 80.0f, 220.0f, 90, 14.0f));
+        setParamValue (params, "modrange_resonance", ranged (72.0f, 30.0f, 95.0f, 91, 9.0f));
+        setParamValue (params, "modrange_pitch", ranged (1.3f, 0.4f, 4.0f, 92, 0.5f));
+        setParamValue (params, "modrange_volume", ranged (24.0f, 10.0f, 45.0f, 93, 6.0f));
+        setParamValue (params, "modrange_pw", ranged (32.0f, 10.0f, 65.0f, 94, 8.0f));
+        setParamValue (params, "modrange_noise_level", ranged (125.0f, 60.0f, 200.0f, 95, 12.0f));
+        return;
+    }
+
+    if (category.equalsIgnoreCase ("Keys") || category.equalsIgnoreCase ("Plucks"))
+    {
+        const int variant = static_cast<int> ((hash >> 15) & 0x3u);
+
+        setModSlot (params, 1, srcVelocity, dstCutoff, amount (40.0f, 100, 8.0f));
+        setModSlot (params, 2, srcVelocity, dstVolume, amount (20.0f, 101, 6.0f));
+        setModSlot (params, 3, srcModWheel, dstCutoff, amount (16.0f, 102, 6.0f));
+        setModSlot (params, 4, srcAftertouch, dstVolume, amount (10.0f, 103, 5.0f));
+
+        switch (variant)
+        {
+            case 0:
+                setModSlot (params, 5, srcLfo1, dstVolume, amount (10.0f, 104, 4.0f));
+                setModSlot (params, 6, srcVelocity, dstResonance, amount (12.0f, 105, 5.0f));
+                setModSlot (params, 7, srcModEnv1, dstCutoff, amount (10.0f, 106, 4.0f));
+                setModSlot (params, 8, srcModWheel, dstPitch, amount (8.0f, 107, 4.0f));
+                break;
+            case 1:
+                setModSlot (params, 5, srcModEnv2, dstCutoff, amount (10.0f, 108, 4.0f));
+                setModSlot (params, 6, srcVelocity, dstOsc2Level, amount (11.0f, 109, 5.0f));
+                setModSlot (params, 7, srcLfo3, dstPulseWidth, amount (11.0f, 110, 4.0f));
+                setModSlot (params, 8, srcModWheel, dstCutoff, amount (12.0f, 111, 5.0f));
+                break;
+            case 2:
+                setModSlot (params, 5, srcLfo1, dstPulseWidth, amount (12.0f, 112, 5.0f));
+                setModSlot (params, 6, srcModEnv1, dstCutoff, amount (12.0f, 113, 5.0f));
+                setModSlot (params, 7, srcAftertouch, dstVolume, amount (9.0f, 114, 4.0f));
+                setModSlot (params, 8, srcModWheel, dstLfo1Rate, amount (11.0f, 115, 5.0f));
+                break;
+            default:
+                setModSlot (params, 5, srcModWheel, dstResonance, amount (10.0f, 116, 4.0f));
+                setModSlot (params, 6, srcVelocity, dstVolume, amount (10.0f, 117, 4.0f));
+                setModSlot (params, 7, srcModEnv1, dstPitch, amount (7.0f, 118, 3.0f));
+                setModSlot (params, 8, srcAftertouch, dstCutoff, amount (10.0f, 119, 4.0f));
+                break;
+        }
+
+        if (hasToken ({ "organ", "vibe", "rhodes", "wurl", "accordion", "chorus" }))
+            setModSlot (params, 5, srcLfo1, dstVolume, amount (10.0f, 120, 4.0f));
+
+        if (hasToken ({ "pluck", "arp", "pick", "pizz", "banjo", "koto", "kalimba", "marimba", "harp", "mbira" }))
+            setModSlot (params, 6, srcVelocity, dstResonance, amount (14.0f, 121, 6.0f));
+        else
+            setModSlot (params, 6, srcModEnv1, dstCutoff, amount (12.0f, 122, 5.0f));
+
+        setParamValue (params, "modrange_cutoff", ranged (112.0f, 70.0f, 180.0f, 123, 10.0f));
+        setParamValue (params, "modrange_resonance", ranged (48.0f, 20.0f, 75.0f, 124, 8.0f));
+        setParamValue (params, "modrange_pitch", ranged (1.6f, 0.5f, 4.0f, 125, 0.5f));
+        setParamValue (params, "modrange_volume", ranged (42.0f, 20.0f, 70.0f, 126, 8.0f));
+        setParamValue (params, "modrange_pw", ranged (32.0f, 10.0f, 60.0f, 127, 7.0f));
+        return;
+    }
+
+    if (category.equalsIgnoreCase ("Brass"))
+    {
+        const int variant = static_cast<int> ((hash >> 19) & 0x3u);
+
+        setModSlot (params, 1, srcVelocity, dstCutoff, amount (30.0f, 130, 7.0f));
+        setModSlot (params, 2, srcModWheel, dstCutoff, amount (22.0f, 131, 6.0f));
+        setModSlot (params, 3, srcAftertouch, dstResonance, amount (10.0f, 132, 5.0f));
+        setModSlot (params, 4, srcModWheel, dstPitch, amount (12.0f, 133, 5.0f));
+        setModSlot (params, 5, srcModEnv1, dstCutoff, amount (16.0f, 134, 5.0f));
+
+        switch (variant)
+        {
+            case 0:
+                setModSlot (params, 6, srcAftertouch, dstVolume, amount (10.0f, 135, 4.0f));
+                setModSlot (params, 7, srcModWheel, dstResonance, amount (10.0f, 136, 4.0f));
+                setModSlot (params, 8, srcVelocity, dstPitch, amount (7.0f, 137, 3.0f));
+                break;
+            case 1:
+                setModSlot (params, 6, srcVelocity, dstResonance, amount (11.0f, 138, 4.0f));
+                setModSlot (params, 7, srcModEnv2, dstCutoff, amount (12.0f, 139, 4.0f));
+                setModSlot (params, 8, srcModWheel, dstPitch, amount (10.0f, 140, 4.0f));
+                break;
+            case 2:
+                setModSlot (params, 6, srcAftertouch, dstCutoff, amount (12.0f, 141, 5.0f));
+                setModSlot (params, 7, srcModWheel, dstLfo1Rate, amount (10.0f, 142, 4.0f));
+                setModSlot (params, 8, srcVelocity, dstVolume, amount (10.0f, 143, 4.0f));
+                break;
+            default:
+                setModSlot (params, 6, srcModEnv1, dstResonance, amount (10.0f, 144, 4.0f));
+                setModSlot (params, 7, srcAftertouch, dstPitch, amount (9.0f, 145, 4.0f));
+                setModSlot (params, 8, srcModWheel, dstCutoff, amount (14.0f, 146, 5.0f));
+                break;
+        }
+
+        if (hasToken ({ "soft", "warm", "mellow", "flugel", "cornet" }))
+            setModSlot (params, 6, srcAftertouch, dstVolume, amount (10.0f, 147, 4.0f));
+
+        setParamValue (params, "modrange_cutoff", ranged (122.0f, 70.0f, 190.0f, 148, 10.0f));
+        setParamValue (params, "modrange_resonance", ranged (56.0f, 20.0f, 80.0f, 149, 8.0f));
+        setParamValue (params, "modrange_pitch", ranged (2.0f, 0.8f, 5.0f, 150, 0.6f));
+        setParamValue (params, "modrange_volume", ranged (32.0f, 15.0f, 55.0f, 151, 6.0f));
+        return;
+    }
+
+    if (category.equalsIgnoreCase ("FX"))
+    {
+        const int variant = static_cast<int> ((hash >> 23) & 0x3u);
+
+        setModSlot (params, 1, srcLfo2, dstCutoff, amount (48.0f, 160, 10.0f));
+        setModSlot (params, 2, srcLfo3, dstPitch, amount (20.0f, 161, 8.0f));
+        setModSlot (params, 3, srcModWheel, dstLfo2Rate, amount (30.0f, 162, 10.0f));
+        setModSlot (params, 4, srcAftertouch, dstResonance, amount (20.0f, 163, 8.0f));
+        setModSlot (params, 5, srcVelocity, dstNoiseLevel, amount (18.0f, 164, 8.0f));
+        setModSlot (params, 6, srcModWheel, dstVolume, amount (14.0f, 165, 7.0f));
+
+        switch (variant)
+        {
+            case 0:
+                setModSlot (params, 7, srcLfo1, dstPitch, amount (30.0f, 166, 10.0f));
+                setModSlot (params, 8, srcAftertouch, dstNoiseLevel, amount (14.0f, 167, 6.0f));
+                break;
+            case 1:
+                setModSlot (params, 7, srcLfo1, dstCutoff, amount (24.0f, 168, 8.0f));
+                setModSlot (params, 8, srcModWheel, dstPitch, amount (18.0f, 169, 7.0f));
+                break;
+            case 2:
+                setModSlot (params, 7, srcModEnv1, dstPitch, amount (22.0f, 170, 8.0f));
+                setModSlot (params, 8, srcVelocity, dstNoiseLevel, amount (18.0f, 171, 8.0f));
+                break;
+            default:
+                setModSlot (params, 7, srcLfo3, dstResonance, amount (20.0f, 172, 7.0f));
+                setModSlot (params, 8, srcAftertouch, dstLfo2Rate, amount (14.0f, 173, 6.0f));
+                break;
+        }
+
+        if (hasToken ({ "siren", "laser", "dial", "modem", "glitch", "spike", "voltage", "comm", "radio" }))
+            setModSlot (params, 7, srcLfo1, dstPitch, amount (30.0f, 174, 10.0f));
+
+        if (noiseLevel > 10.0f || hasToken ({ "noise", "wind", "static", "thunder", "swarm", "rain" }))
+            setModSlot (params, 8, srcAftertouch, dstNoiseLevel, amount (18.0f, 175, 8.0f));
+
+        setParamValue (params, "modrange_cutoff", ranged (172.0f, 90.0f, 260.0f, 176, 16.0f));
+        setParamValue (params, "modrange_resonance", ranged (86.0f, 40.0f, 100.0f, 177, 9.0f));
+        setParamValue (params, "modrange_pitch", ranged (4.2f, 1.5f, 12.0f, 178, 1.0f));
+        setParamValue (params, "modrange_volume", ranged (62.0f, 20.0f, 100.0f, 179, 10.0f));
+        setParamValue (params, "modrange_pw", ranged (52.0f, 15.0f, 90.0f, 180, 9.0f));
+        setParamValue (params, "modrange_noise_level", ranged (155.0f, 80.0f, 200.0f, 181, 12.0f));
+        setParamValue (params, "modrange_lfo2_rate", ranged (18.0f, 4.0f, 35.0f, 182, 5.0f));
+        setParamValue (params, "modrange_lfo3_rate", ranged (18.0f, 4.0f, 35.0f, 183, 5.0f));
+        return;
+    }
+
+    // Utility/fallback profile
+    const int variant = static_cast<int> ((hash >> 27) & 0x3u);
+    setModSlot (params, 1, srcVelocity, dstCutoff, amount (18.0f, 190, 5.0f));
+    setModSlot (params, 2, srcModWheel, dstPitch, amount (10.0f, 191, 4.0f));
+    setModSlot (params, 3, srcAftertouch, dstVolume, amount (8.0f, 192, 3.0f));
+
+    switch (variant)
+    {
+        case 0:
+            setModSlot (params, 4, srcLfo1, dstCutoff, amount (12.0f, 193, 4.0f));
+            setModSlot (params, 5, srcModWheel, dstLfo1Rate, amount (10.0f, 194, 4.0f));
+            break;
+        case 1:
+            setModSlot (params, 4, srcModEnv1, dstCutoff, amount (10.0f, 195, 4.0f));
+            setModSlot (params, 5, srcAftertouch, dstResonance, amount (9.0f, 196, 3.0f));
+            break;
+        case 2:
+            setModSlot (params, 4, srcLfo3, dstPulseWidth, amount (12.0f, 197, 4.0f));
+            setModSlot (params, 5, srcModWheel, dstCutoff, amount (12.0f, 198, 4.0f));
+            break;
+        default:
+            setModSlot (params, 4, srcModEnv2, dstPitch, amount (8.0f, 199, 3.0f));
+            setModSlot (params, 5, srcVelocity, dstResonance, amount (10.0f, 200, 4.0f));
+            break;
+    }
+
+    setParamValue (params, "modrange_cutoff", ranged (102.0f, 60.0f, 160.0f, 201, 8.0f));
+    setParamValue (params, "modrange_pitch", ranged (1.5f, 0.5f, 4.0f, 202, 0.4f));
+}
+
 // Helper to build a preset with defaults, then override specific params.
 // Auto-normalizes master_volume based on combined oscillator energy so
 // all presets output roughly the same perceived loudness.
@@ -22,7 +455,8 @@ static Preset makePreset (const juce::String& name, const juce::String& category
         { "osc2_unison_voices", 1 }, { "osc2_unison_detune", 20 }, { "osc2_unison_blend", 50 },
         { "osc2_attack", 5 }, { "osc2_decay", 200 }, { "osc2_sustain", 70 }, { "osc2_release", 300 },
 
-        { "filter_mode", 0 }, { "filter_slope", 1 }, { "filter_target", 4 }, { "filter_cutoff", 8000 },
+        { "filter_model", 0 }, { "filter_mode", 0 }, { "filter_slope", 2 },
+        { "filter_target", 4 }, { "filter_cutoff", 8000 },
         { "filter_resonance", 20 }, { "filter_env_amount", 50 }, { "filter_key_tracking", 0 },
         { "filter_velocity", 0 },
         { "filter_attack", 10 }, { "filter_decay", 400 }, { "filter_sustain", 30 },
@@ -36,6 +470,10 @@ static Preset makePreset (const juce::String& name, const juce::String& category
         { "lfo2_dest_cutoff", 0 }, { "lfo2_dest_pitch", 0 },
         { "lfo2_dest_volume", 0 }, { "lfo2_dest_pw", 0 },
 
+        { "lfo3_waveform", 0 }, { "lfo3_rate", 1 }, { "lfo3_depth", 0 },
+        { "lfo3_dest_cutoff", 0 }, { "lfo3_dest_pitch", 0 },
+        { "lfo3_dest_volume", 0 }, { "lfo3_dest_pw", 0 },
+
         { "modenv1_attack", 5 }, { "modenv1_decay", 200 }, { "modenv1_sustain", 0 },
         { "modenv1_release", 300 }, { "modenv1_amount", 0 },
         { "modenv1_dest_cutoff", 0 }, { "modenv1_dest_resonance", 0 },
@@ -46,6 +484,20 @@ static Preset makePreset (const juce::String& name, const juce::String& category
         { "modenv2_dest_cutoff", 0 }, { "modenv2_dest_resonance", 0 },
         { "modenv2_dest_pitch", 0 }, { "modenv2_dest_volume", 0 },
 
+        { "modmatrix_1_source", 0 }, { "modmatrix_1_dest", 0 }, { "modmatrix_1_amount", 0 },
+        { "modmatrix_2_source", 0 }, { "modmatrix_2_dest", 0 }, { "modmatrix_2_amount", 0 },
+        { "modmatrix_3_source", 0 }, { "modmatrix_3_dest", 0 }, { "modmatrix_3_amount", 0 },
+        { "modmatrix_4_source", 0 }, { "modmatrix_4_dest", 0 }, { "modmatrix_4_amount", 0 },
+        { "modmatrix_5_source", 0 }, { "modmatrix_5_dest", 0 }, { "modmatrix_5_amount", 0 },
+        { "modmatrix_6_source", 0 }, { "modmatrix_6_dest", 0 }, { "modmatrix_6_amount", 0 },
+        { "modmatrix_7_source", 0 }, { "modmatrix_7_dest", 0 }, { "modmatrix_7_amount", 0 },
+        { "modmatrix_8_source", 0 }, { "modmatrix_8_dest", 0 }, { "modmatrix_8_amount", 0 },
+
+        { "modrange_cutoff", 75 }, { "modrange_resonance", 75 }, { "modrange_pitch", 2 },
+        { "modrange_volume", 50 }, { "modrange_pw", 45 },
+        { "modrange_osc1_level", 100 }, { "modrange_osc2_level", 100 }, { "modrange_noise_level", 100 },
+        { "modrange_lfo1_rate", 10 }, { "modrange_lfo2_rate", 10 }, { "modrange_lfo3_rate", 10 },
+
         { "chorus_mode", 1 }, { "chorus_depth", 50 },
 
         { "reverb_size", 50 }, { "reverb_damping", 50 }, { "reverb_mix", 0 }, { "reverb_width", 100 },
@@ -55,7 +507,9 @@ static Preset makePreset (const juce::String& name, const juce::String& category
 
         { "master_volume", 80 }, { "master_polyphony", 16 }, { "master_glide", 0 },
         { "master_pitch_bend", 2 }, { "master_mono_legato", 0 }, { "master_analog_drift", 0 },
-        { "master_unison", 1 }, { "master_unison_detune", 20 }
+        { "master_unison", 1 }, { "master_unison_detune", 20 },
+        { "sidechain_amount", 0 },
+        { "output_mode", 0 }, { "output_drive", 25 }, { "output_mix", 100 }
     };
 
     // Check if master_volume is explicitly overridden by the preset
@@ -69,7 +523,7 @@ static Preset makePreset (const juce::String& name, const juce::String& category
         }
     }
 
-    // Apply overrides
+    // Apply explicit overrides first.
     for (const auto& ov : overrides)
     {
         for (auto& def : defaults)
@@ -81,6 +535,9 @@ static Preset makePreset (const juce::String& name, const juce::String& category
             }
         }
     }
+
+    // Assign a preset-specific mod matrix profile from final sound settings.
+    applyPresetSpecificModMatrixProfile (name, category, defaults);
 
     // Auto-normalize volume based on combined oscillator energy.
     // Presets with many unison voices or high osc levels would otherwise
@@ -98,7 +555,8 @@ static Preset makePreset (const juce::String& name, const juce::String& category
         float osc2Level = getParam ("osc2_level") / 100.0f;
         float osc1Unison = std::max (1.0f, getParam ("osc1_unison_voices"));
         float osc2Unison = std::max (1.0f, getParam ("osc2_unison_voices"));
-        float noiseLevel = getParam ("noise_level") / 100.0f;
+        // Noise path is capped to 50% in SynthVoice, so reflect that here.
+        float noiseLevel = (getParam ("noise_level") / 100.0f) * 0.5f;
 
         // Energy estimate: level * sqrt(unison voices) per oscillator + noise
         float energy = osc1Level * std::sqrt (osc1Unison)
@@ -302,7 +760,7 @@ void PresetManager::buildFactoryPresets()
         { "osc1_waveform", 1 }, { "osc1_attack", 1 }, { "osc1_sustain", 50 }, { "osc1_release", 80 },
         { "osc2_level", 0 },
         { "filter_cutoff", 500 }, { "filter_resonance", 80 }, { "filter_env_amount", 90 },
-        { "filter_slope", 1 }, { "filter_decay", 300 }, { "filter_sustain", 5 },
+        { "filter_slope", 2 }, { "filter_decay", 300 }, { "filter_sustain", 5 },
         { "master_mono_legato", 1 }, { "master_glide", 40 }, { "master_analog_drift", 10 }
     }));
 
@@ -398,7 +856,7 @@ void PresetManager::buildFactoryPresets()
         { "osc1_attack", 1 }, { "osc1_sustain", 40 }, { "osc1_release", 50 },
         { "osc2_level", 0 },
         { "filter_cutoff", 400 }, { "filter_resonance", 75 }, { "filter_env_amount", 85 },
-        { "filter_slope", 1 }, { "filter_decay", 200 }, { "filter_sustain", 5 },
+        { "filter_slope", 2 }, { "filter_decay", 200 }, { "filter_sustain", 5 },
         { "master_mono_legato", 1 }, { "master_glide", 30 }, { "master_analog_drift", 5 }
     }));
 
@@ -1253,7 +1711,7 @@ void PresetManager::buildFactoryPresets()
         { "osc1_attack", 1 }, { "osc1_decay", 100 }, { "osc1_sustain", 0 }, { "osc1_release", 50 },
         { "osc2_level", 0 },
         { "filter_cutoff", 12000 }, { "filter_resonance", 5 },
-        { "filter_slope", 0 }
+        { "filter_slope", 1 }
     }));
 
     // ==================== PRESETS 101-200 ====================
@@ -1755,7 +2213,7 @@ void PresetManager::buildFactoryPresets()
         { "osc1_waveform", 2 }, { "osc1_pulse_width", 50 },
         { "osc1_attack", 1 }, { "osc1_sustain", 90 }, { "osc1_release", 30 },
         { "osc2_level", 0 },
-        { "filter_cutoff", 15000 }, { "filter_resonance", 5 }, { "filter_slope", 0 }
+        { "filter_cutoff", 15000 }, { "filter_resonance", 5 }, { "filter_slope", 1 }
     }));
 
     presets.push_back (makePreset ("Nasal Lead", "Leads", {
@@ -2508,6 +2966,8 @@ void PresetManager::loadUserPresets()
         preset.name = xml->getStringAttribute ("name", file.getFileNameWithoutExtension());
         preset.category = xml->getStringAttribute ("category", "User");
 
+        bool hasAnyModMatrixParam = false;
+
         for (auto* paramEl : xml->getChildIterator())
         {
             if (paramEl->hasTagName ("Param"))
@@ -2515,6 +2975,9 @@ void PresetManager::loadUserPresets()
                 auto id = paramEl->getStringAttribute ("id");
                 auto val = static_cast<float> (paramEl->getDoubleAttribute ("value"));
                 preset.parameters.push_back ({ id, val });
+
+                if (id.startsWith ("modmatrix_"))
+                    hasAnyModMatrixParam = true;
             }
         }
 
@@ -2551,6 +3014,45 @@ void PresetManager::loadUserPresets()
         ensureParam ("modenv2_dest_resonance", 0.0f);
         ensureParam ("modenv2_dest_pitch", 0.0f);
         ensureParam ("modenv2_dest_volume", 0.0f);
+
+        ensureParam ("filter_model", 0.0f);
+        ensureParam ("lfo3_waveform", 0.0f);
+        ensureParam ("lfo3_rate", 1.0f);
+        ensureParam ("lfo3_depth", 0.0f);
+        ensureParam ("lfo3_dest_cutoff", 0.0f);
+        ensureParam ("lfo3_dest_pitch", 0.0f);
+        ensureParam ("lfo3_dest_volume", 0.0f);
+        ensureParam ("lfo3_dest_pw", 0.0f);
+
+        for (int i = 1; i <= 8; ++i)
+        {
+            auto slot = juce::String (i);
+            ensureParam ("modmatrix_" + slot + "_source", 0.0f);
+            ensureParam ("modmatrix_" + slot + "_dest", 0.0f);
+            ensureParam ("modmatrix_" + slot + "_amount", 0.0f);
+        }
+
+        ensureParam ("modrange_cutoff", 75.0f);
+        ensureParam ("modrange_resonance", 75.0f);
+        ensureParam ("modrange_pitch", 2.0f);
+        ensureParam ("modrange_volume", 50.0f);
+        ensureParam ("modrange_pw", 45.0f);
+        ensureParam ("modrange_osc1_level", 100.0f);
+        ensureParam ("modrange_osc2_level", 100.0f);
+        ensureParam ("modrange_noise_level", 100.0f);
+        ensureParam ("modrange_lfo1_rate", 10.0f);
+        ensureParam ("modrange_lfo2_rate", 10.0f);
+        ensureParam ("modrange_lfo3_rate", 10.0f);
+
+        ensureParam ("sidechain_amount", 0.0f);
+        ensureParam ("output_mode", 0.0f);
+        ensureParam ("output_drive", 25.0f);
+        ensureParam ("output_mix", 100.0f);
+
+        // Legacy user presets created before the matrix existed get a deterministic,
+        // per-preset matrix profile (name/category based), not a shared global one.
+        if (! hasAnyModMatrixParam)
+            applyPresetSpecificModMatrixProfile (preset.name, preset.category, preset.parameters);
 
         presets.push_back (std::move (preset));
     }
