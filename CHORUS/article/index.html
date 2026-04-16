@@ -94,7 +94,8 @@
                 const animToken = (window.__heroAnimToken || 0) + 1;
                 window.__heroAnimToken = animToken;
 
-                let startTs = null;
+                let elapsed = 0;
+                let lastTs = null;
                 let rafId = null;
                 let framePending = false;
 
@@ -112,8 +113,11 @@
                 function draw(ts) {
                     if (window.__heroAnimToken !== animToken) return;
                     framePending = false;
-                    if (startTs === null) startTs = ts;
-                    const elapsed = (ts - startTs) / 1000;
+                    // Use capped delta-time so animation rate stays stable across dropped frames/tab restores.
+                    if (lastTs === null) lastTs = ts;
+                    const dt = Math.min((ts - lastTs) / 1000, 0.05);
+                    lastTs = ts;
+                    elapsed += dt;
                     const theme = getComputedStyle(document.documentElement);
                     const panelBg = theme.getPropertyValue('--hero-panel-bg').trim() || '#f8fafc';
                     const panelBorder = theme.getPropertyValue('--hero-panel-border').trim() || '#e2e8f0';
