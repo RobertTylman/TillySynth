@@ -18,7 +18,7 @@ static constexpr int kLabelHeight = 14;
 static constexpr int kSectionTitleHeight = 22;
 static constexpr int kToggleHeight = 24;
 static constexpr int kEnvelopeDisplayH = 60;
-static constexpr int kWaveformSelectorH = 36;
+static constexpr int kWaveformSelectorH = 28;
 
 namespace
 {
@@ -1709,6 +1709,7 @@ void TillySynthEditor::layoutLFOSection (juce::Rectangle<int> area, const juce::
     const int knobSize = scaleInt (scale, kKnobSize);
     const int waveformSelectorH = scaleInt (scale, kWaveformSelectorH);
     const int toggleHeight = scaleInt (scale, kToggleHeight);
+    const int waveViewReservedH = scaleInt (scale, 38);
     area.removeFromTop (sectionTitleHeight);
 
     // Waveform selector strip
@@ -1717,9 +1718,27 @@ void TillySynthEditor::layoutLFOSection (juce::Rectangle<int> area, const juce::
         waveformSelectors[prefix + "_waveform"]->setBounds (
             wfArea.reduced (scaleInt (scale, 4), scaleInt (scale, 2)));
 
-    area.removeFromTop (scaleInt (scale, 4));
+    // Reserve wave viewer area at bottom (painted in paint())
+    area.removeFromBottom (waveViewReservedH);
 
-    // Rate + Depth
+    // Destination toggles — anchored just above the wave viewer so they never overlap it
+    auto toggleRow = area.removeFromBottom (toggleHeight);
+    int btnW = toggleRow.getWidth() / 4;
+
+    auto placeToggle = [&] (const juce::String& id, juce::Rectangle<int>& row)
+    {
+        auto col = row.removeFromLeft (btnW);
+        if (toggles.count (id))
+            toggles[id].button->setBounds (col.reduced (2));
+    };
+
+    placeToggle (prefix + "_dest_cutoff", toggleRow);
+    placeToggle (prefix + "_dest_pitch", toggleRow);
+    placeToggle (prefix + "_dest_volume", toggleRow);
+    placeToggle (prefix + "_dest_pw", toggleRow);
+
+    // Rate + Depth knobs fill the space between waveform selector and toggle row
+    area.removeFromTop (scaleInt (scale, 2));
     int knobH = knobSize + labelHeight;
     int colW = area.getWidth() / 2;
     auto knobRow = area.removeFromTop (knobH);
@@ -1736,24 +1755,6 @@ void TillySynthEditor::layoutLFOSection (juce::Rectangle<int> area, const juce::
 
     placeKnob (prefix + "_rate", knobRow);
     placeKnob (prefix + "_depth", knobRow);
-
-    area.removeFromTop (scaleInt (scale, 4));
-
-    // Destination toggles
-    auto toggleRow = area.removeFromTop (toggleHeight);
-    int btnW = area.getWidth() / 4;
-
-    auto placeToggle = [&] (const juce::String& id, juce::Rectangle<int>& row)
-    {
-        auto col = row.removeFromLeft (btnW);
-        if (toggles.count (id))
-            toggles[id].button->setBounds (col.reduced (2));
-    };
-
-    placeToggle (prefix + "_dest_cutoff", toggleRow);
-    placeToggle (prefix + "_dest_pitch", toggleRow);
-    placeToggle (prefix + "_dest_volume", toggleRow);
-    placeToggle (prefix + "_dest_pw", toggleRow);
 
     // LFO waveform display is paint-only (handled in paint())
 }
