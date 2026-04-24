@@ -57,21 +57,26 @@ private:
 
     // ModeSpec hard-codes the "character contract" for each Juno mode.
     //
-    // lfoRateHz:      LFO speed for this mode.
+    // lfoRateLeftHz:   LFO speed driving the left BBD path.
+    // lfoRateRightHz:  If > 0, right BBD runs its own independent LFO at
+    //                  this rate. If 0, right mirrors left with inverted
+    //                  polarity — the authentic Juno stereo-chorus trick.
+    //                  Kept as a hook in case a later mode wants cross-rate
+    //                  motion; all three canonical Juno modes leave it at 0.
     // min/maxDelaySec: Delay excursion bounds used by that mode.
-    // isMonoOut:      I+II is intentionally mono in this model.
-    // useSineLfo:     I and II use triangle; I+II uses fast sine-like motion.
+    // isMonoOut:       True for Chorus I+II, whose hardware behavior is
+    //                  mono output (both wet taps sum to both channels).
     struct ModeSpec
     {
-        float lfoRateHz = 0.0f;
+        float lfoRateLeftHz = 0.0f;
+        float lfoRateRightHz = 0.0f;
         float minDelaySec = 0.0f;
         float maxDelaySec = 0.0f;
         bool isMonoOut = false;
-        bool useSineLfo = false;
     };
 
     ModeSpec getModeSpec() const;
-    float getLfoValue (float phase, bool useSine) const;
+    float getTriangleLfo (float phase) const;
     float processDelayLine (DelayLine& line, float input, float delaySamples);
 
     ChorusMode mode = ChorusMode::Off;
@@ -84,9 +89,14 @@ private:
     DelayLine delayLeft;
     DelayLine delayRight;
 
-    // Shared LFO phase for both lines. The right side uses inverted polarity
-    // of the same LFO value to achieve 180-degree modulation opposition.
-    float lfoPhase = 0.0f;
+    // Per-channel LFO phases.
+    //
+    // All three Juno modes share a single LFO (lfoPhaseLeft); the right BBD
+    // reads from it with inverted polarity to produce the 180-degree stereo
+    // motion. lfoPhaseRight exists only for the ModeSpec.lfoRateRightHz > 0
+    // case (not used by any canonical Juno mode) and is otherwise idle.
+    float lfoPhaseLeft = 0.0f;
+    float lfoPhaseRight = 0.0f;
 
     // Pre-delay low-pass approximation.
     //

@@ -88,27 +88,18 @@ void AnalogueDriftEngine::updateDriftValues (const DriftSensorData& sensorData)
 
     // CPU load provides fast, variable drift (like component-level instability)
     // Thermal pressure provides slow drift (like warming capacitors)
-    // Battery drain provides very slow drift (thermal correlation on laptops)
+    // Battery drain provides very slow drift (a mains-vs-battery character shift)
     float cpuSignal = sensorData.cpuLoadAvailable ? sensorData.cpuLoad : 0.0f;
     float thermalSignal = sensorData.thermalAvailable ? sensorData.thermalPressure : 0.0f;
     float batterySignal = sensorData.batteryAvailable ? sensorData.batteryDrainRate : 0.0f;
-
-    // Combine available signals; always have some base drift via PRNG
-    bool hasSensors = sensorData.cpuLoadAvailable || sensorData.thermalAvailable
-                   || sensorData.batteryAvailable;
-
-    // Environmental signal: weighted blend of available sources
-    float envSignal = hasSensors
-        ? (cpuSignal * 0.5f + thermalSignal * 0.3f + batterySignal * 0.2f)
-        : 0.5f;
 
     for (size_t i = 0; i < static_cast<size_t> (kMaxVoices); ++i)
     {
         // PRNG component ensures each voice drifts uniquely
         float noise = random.nextFloat() * 2.0f - 1.0f;
 
-        // Per-voice seed evolves slowly, modulated by the environmental signal
-        float seedPhase = std::sin (driftSeeds[i] + envSignal * 3.0f);
+        // Per-voice seed evolves slowly, giving each voice a unique slow wobble
+        float seedPhase = std::sin (driftSeeds[i]);
 
         // CPU load creates faster pitch wobble (like oscillator instability under heat)
         float cpuComponent = cpuSignal * std::sin (driftSeeds[i] * 7.3f);
@@ -116,10 +107,16 @@ void AnalogueDriftEngine::updateDriftValues (const DriftSensorData& sensorData)
         // Thermal creates slow cutoff wander (like drifting capacitor values)
         float thermalComponent = thermalSignal * std::cos (driftSeeds[i] * 2.1f);
 
-        float pitchDrift = (noise * 0.3f + seedPhase * 0.3f + cpuComponent * 0.4f)
+        // Battery drain adds a slow per-voice bias; a distinct seed multiplier
+        // keeps it from beating against the cpu/thermal components.
+        float batteryComponent = batterySignal * std::sin (driftSeeds[i] * 4.7f);
+
+        float pitchDrift = (noise * 0.3f + seedPhase * 0.3f
+                          + cpuComponent * 0.3f + batteryComponent * 0.1f)
                          * kMaxPitchDriftCents * amount;
 
-        float cutoffDrift = (noise * 0.2f + seedPhase * 0.3f + thermalComponent * 0.5f)
+        float cutoffDrift = (noise * 0.2f + seedPhase * 0.3f
+                           + thermalComponent * 0.4f + batteryComponent * 0.1f)
                           * kMaxCutoffDriftHz * amount;
 
         pitchDrifts[i].store (pitchDrift);

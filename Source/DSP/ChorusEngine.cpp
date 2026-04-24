@@ -85,9 +85,11 @@ void ChorusEngine::prepare (double sampleRate, int /*samplesPerBlock*/)
     currentSampleRate = sampleRate;
 
     // Juno-like delay window tops out around 5.35 ms (for modes I/II).
-    // We allocate to that maximum and add +4 samples as guard points so cubic
-    // interpolation can safely read i0..i3 around the read head.
-    int maxDelaySamples = static_cast<int> (std::ceil (sampleRate * 0.00535)) + 4;
+    // We allocate up to 6.0 ms so the per-channel center-delay mismatch in
+    // process() can push the longer-side read position past the nominal
+    // 5.35 ms peak without clamping the LFO excursion. +4 samples are guard
+    // points so cubic interpolation can safely read i0..i3 around the head.
+    int maxDelaySamples = static_cast<int> (std::ceil (sampleRate * 0.00600)) + 4;
 
     delayLeft.prepare (maxDelaySamples);
     delayRight.prepare (maxDelaySamples);
@@ -115,7 +117,8 @@ void ChorusEngine::reset()
     // Clear both delay memories and all filter/LFO states.
     delayLeft.reset();
     delayRight.reset();
-    lfoPhase = 0.0f;
+    lfoPhaseLeft = 0.0f;
+    lfoPhaseRight = 0.0f;
     preLp1State = 0.0f;
     preLp2State = 0.0f;
     outLpLeft = 0.0f;
@@ -136,38 +139,30 @@ void ChorusEngine::setDepth (float mix01)
 
 ChorusEngine::ModeSpec ChorusEngine::getModeSpec() const
 {
-    // Canonical mode constants from the requested Juno-style spec.
+    // Authentic Juno-60 chorus spec.
     //
-    // I, II:
-    // - triangle LFO
-    // - wide delay excursion
-    // - stereo (L/R inverse modulation)
-    //
-    // I+II:
-    // - fast LFO (Leslie-like shimmer zone)
-    // - narrow delay excursion
-    // - mono output
-    // - sine shape for smoother high-rate motion
+    // Hardware topology: one triangle LFO modulates two 256-step BBD lines.
+    // Left sees +LFO, right sees -LFO (180-degree inversion). Modes I and II
+    // output stereo; mode I+II is mono and acts like a fast Leslie-type
+    // shimmer. Rates and delay bounds are taken from the reverse-engineered
+    // Juno-60 values (service notes quote rounded figures: 0.5 / 0.83 / 1 Hz,
+    // the last almost certainly a typo for 10 Hz).
     switch (mode)
     {
         case ChorusMode::I:
-            return { 0.513f, 0.00166f, 0.00535f, false, false };
+            return { 0.513f, 0.0f, 0.00166f, 0.00535f, false };
         case ChorusMode::II:
-            return { 0.863f, 0.00166f, 0.00535f, false, false };
+            return { 0.863f, 0.0f, 0.00166f, 0.00535f, false };
         case ChorusMode::Both:
-            return { 9.75f, 0.00330f, 0.00370f, true, true };
+            return { 9.75f,  0.0f, 0.00330f, 0.00370f, true  };
         case ChorusMode::Off:
         default:
             return {};
     }
 }
 
-float ChorusEngine::getLfoValue (float phase, bool useSine) const
+float ChorusEngine::getTriangleLfo (float phase) const
 {
-    // For I+II mode we use sine to keep very fast modulation smoother.
-    if (useSine)
-        return std::sin (phase * juce::MathConstants<float>::twoPi);
-
     // Symmetric bipolar triangle in [-1, +1].
     // phase in [0, 1):
     // 0.0 -> -1, 0.25 -> 0, 0.5 -> +1, 0.75 -> 0, 1.0 -> -1.
@@ -200,7 +195,7 @@ void ChorusEngine::process (juce::AudioBuffer<float>& buffer)
     int numSamples = buffer.getNumSamples();
     int numChannels = buffer.getNumChannels();
     auto spec = getModeSpec();
-    if (spec.lfoRateHz <= 0.0f || numChannels <= 0)
+    if (spec.lfoRateLeftHz <= 0.0f || numChannels <= 0)
         return;
 
     // The historic architecture conceptually starts from a mono feed and then
@@ -209,18 +204,42 @@ void ChorusEngine::process (juce::AudioBuffer<float>& buffer)
     float* left = buffer.getWritePointer (0);
     float* right = numChannels > 1 ? buffer.getWritePointer (1) : nullptr;
 
-    // Juno wet calibration:
-    // the wet path is approximately -1.62 dB relative to dry at full wet.
-    constexpr float wetCalibration = 0.829f; // -1.62 dB
+    // Wet-path gain at full mix.
+    //
+    // The hardware attenuates the wet bus by ~1.62 dB, but in practice that
+    // made "max chorus" feel underpowered against the dry path. Running the
+    // wet at unity gives more presence at high mix settings while staying
+    // well inside sane headroom (the BBD tanh non-linearity caps peaks).
+    constexpr float wetCalibration = 1.0f;
 
-    // Phase advance per sample.
-    float phaseInc = spec.lfoRateHz / static_cast<float> (currentSampleRate);
+    // Phase advances per sample for each channel's LFO.
+    // lfoRateRightHz == 0 signals "mirror left with inverted polarity"
+    // (modes I, II). Otherwise the right channel runs independently (I+II).
+    float phaseIncLeft = spec.lfoRateLeftHz / static_cast<float> (currentSampleRate);
+    float phaseIncRight = spec.lfoRateRightHz / static_cast<float> (currentSampleRate);
+    bool independentRight = spec.lfoRateRightHz > 0.0f;
 
     // Convert spec delay bounds from seconds to samples.
     float minDelaySamples = spec.minDelaySec * static_cast<float> (currentSampleRate);
     float maxDelaySamples = spec.maxDelaySec * static_cast<float> (currentSampleRate);
     float centerDelay = 0.5f * (minDelaySamples + maxDelaySamples);
     float depthSamples = 0.5f * (maxDelaySamples - minDelaySamples);
+
+    // Per-channel center-delay mismatch.
+    //
+    // On real Juno hardware the two BBD lines are clocked from the same LFO
+    // but their absolute delay-per-stage isn't perfectly matched — small
+    // component tolerances make the two paths settle at slightly different
+    // center delays. That mismatch decorrelates the two wet taps beyond what
+    // pure +/- LFO polarity achieves and is a large part of why the hardware
+    // chorus feels wide rather than merely "out of phase."
+    //
+    // We only apply it in the stereo modes (I, II). Mode I+II is mono-sum by
+    // spec, so any L/R delay offset collapses in the sum and adds nothing —
+    // keeping centers matched there stays closer to the hardware tap values.
+    constexpr float centerMismatch = 0.06f;
+    float centerL = spec.isMonoOut ? centerDelay : centerDelay * (1.0f - centerMismatch);
+    float centerR = spec.isMonoOut ? centerDelay : centerDelay * (1.0f + centerMismatch);
 
     // Dry/wet control:
     // 0.0 -> fully dry
@@ -241,16 +260,20 @@ void ChorusEngine::process (juce::AudioBuffer<float>& buffer)
         preLp2State += preLpCoeff * (preLp1State - preLp2State);
         float bbdInput = preLp2State;
 
-        // One shared LFO drives both delay lines.
-        // Left sees +LFO, right sees -LFO => 180-degree inversion.
-        float lfo = getLfoValue (lfoPhase, spec.useSineLfo);
+        // Resolve each channel's modulation value.
+        // Modes I, II: right mirrors left with inverted polarity (cheap, classic).
+        // Mode I+II:   right runs its own LFO at the Mode-II rate, so the two
+        //              channels beat against each other continuously.
+        float lfoL = getTriangleLfo (lfoPhaseLeft);
+        float lfoR = independentRight ? getTriangleLfo (lfoPhaseRight) : -lfoL;
 
         // Compute variable delay taps and clamp for interpolation safety:
         // minimum 2 samples, maximum maxLength-4 (needed by cubic neighborhood).
+        // Each side uses its own center to introduce the BBD clock mismatch.
         float delayL = juce::jlimit (2.0f, static_cast<float> (delayLeft.maxLength - 4),
-                                     centerDelay + lfo * depthSamples);
+                                     centerL + lfoL * depthSamples);
         float delayR = juce::jlimit (2.0f, static_cast<float> (delayRight.maxLength - 4),
-                                     centerDelay - lfo * depthSamples);
+                                     centerR + lfoR * depthSamples);
 
         // Process each BBD path independently with same input.
         float wetL = processDelayLine (delayLeft, bbdInput, delayL);
@@ -262,7 +285,9 @@ void ChorusEngine::process (juce::AudioBuffer<float>& buffer)
 
         if (spec.isMonoOut)
         {
-            // Mode I+II: mono output behavior (both channels carry same signal).
+            // Mode I+II: hardware sums both wet taps and drives both output
+            // channels identically. Dry is summed to mono here too so the
+            // whole mode's output is genuinely mono, matching the spec.
             float monoWet = 0.5f * (outLpLeft + outLpRight);
             float out = dryGain * monoIn + wetGain * monoWet;
             left[i] = out;
@@ -271,16 +296,26 @@ void ChorusEngine::process (juce::AudioBuffer<float>& buffer)
         }
         else
         {
-            // Modes I/II: stereo output, with channel-specific wet taps.
-            left[i] = dryGain * monoIn + wetGain * outLpLeft;
+            // Modes I, II: stereo output. BBD lines still see the mono sum
+            // (authentic "one HPF feeds both BBDs" topology), but the dry
+            // path passes through in native L/R so any upstream stereo
+            // content (drift, pan, etc.) survives to the output.
+            left[i] = dryGain * inL + wetGain * outLpLeft;
             if (right != nullptr)
-                right[i] = dryGain * monoIn + wetGain * outLpRight;
+                right[i] = dryGain * inR + wetGain * outLpRight;
         }
 
-        // Advance and wrap normalized phase [0, 1).
-        lfoPhase += phaseInc;
-        if (lfoPhase >= 1.0f)
-            lfoPhase -= 1.0f;
+        // Advance both phases; right only moves when it has an independent rate.
+        lfoPhaseLeft += phaseIncLeft;
+        if (lfoPhaseLeft >= 1.0f)
+            lfoPhaseLeft -= 1.0f;
+
+        if (independentRight)
+        {
+            lfoPhaseRight += phaseIncRight;
+            if (lfoPhaseRight >= 1.0f)
+                lfoPhaseRight -= 1.0f;
+        }
     }
 }
 
