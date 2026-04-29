@@ -102,7 +102,7 @@ private:
 
     int noteOrderCounter = 0;
     bool sustainPedalDown = false;
-    std::array<bool, 128> sustainedNotes {};
+    std::array<bool, 128> physicalNotesDown {};
 
     // Track held notes for mono legato
     std::array<int, 128> heldNotes {};

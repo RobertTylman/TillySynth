@@ -157,4 +157,4 @@ open 'build/TillyPresetReview_artefacts/Release/TillySynth Preset Review.app'
 
 ---
 
-*Designed and Developed by [Robbie Tylman](https://github.com/RobertTylman)*
+*Designed and Developed by [Robert Tylman](https://github.com/RobertTylman)*

@@ -29,13 +29,16 @@ void VoiceManager::reset()
     lfo3.reset();
     noteOrderCounter = 0;
     sustainPedalDown = false;
-    sustainedNotes.fill (false);
+    physicalNotesDown.fill (false);
     heldNotes.fill (-1);
     heldNoteCount = 0;
 }
 
 void VoiceManager::handleNoteOn (int midiNote, float velocity)
 {
+    if (midiNote >= 0 && midiNote < 128)
+        physicalNotesDown[static_cast<size_t> (midiNote)] = true;
+
     velocity = juce::jlimit (0.0f, 1.0f, velocity);
 
     if (monoLegato)
@@ -84,6 +87,9 @@ void VoiceManager::handleNoteOn (int midiNote, float velocity)
 
 void VoiceManager::handleNoteOff (int midiNote)
 {
+    if (midiNote >= 0 && midiNote < 128)
+        physicalNotesDown[static_cast<size_t> (midiNote)] = false;
+
     if (monoLegato)
     {
         // Remove from held notes
@@ -107,16 +113,14 @@ void VoiceManager::handleNoteOff (int midiNote)
         }
         else
         {
-            voices[0].noteOff();
+            if (! sustainPedalDown)
+                voices[0].noteOff();
         }
         return;
     }
 
     if (sustainPedalDown)
-    {
-        sustainedNotes[static_cast<size_t> (midiNote)] = true;
         return;
-    }
 
     for (auto& voice : voices)
     {
@@ -127,21 +131,20 @@ void VoiceManager::handleNoteOff (int midiNote)
 
 void VoiceManager::handleSustainPedal (bool isDown)
 {
+    if (sustainPedalDown == isDown)
+        return;
+
     sustainPedalDown = isDown;
 
     if (! isDown)
     {
-        // Release all notes that were sustained
-        for (int note = 0; note < 128; ++note)
+        for (auto& voice : voices)
         {
-            if (sustainedNotes[static_cast<size_t> (note)])
+            if (voice.isActive() && voice.isNoteHeld())
             {
-                sustainedNotes[static_cast<size_t> (note)] = false;
-                for (auto& voice : voices)
-                {
-                    if (voice.getCurrentNote() == note && voice.isNoteHeld())
-                        voice.noteOff();
-                }
+                int note = voice.getCurrentNote();
+                if (note >= 0 && note < 128 && ! physicalNotesDown[static_cast<size_t> (note)])
+                    voice.noteOff();
             }
         }
     }
@@ -159,7 +162,7 @@ void VoiceManager::handleAllNotesOff()
         voice.noteOff();
 
     sustainPedalDown = false;
-    sustainedNotes.fill (false);
+    physicalNotesDown.fill (false);
     heldNotes.fill (-1);
     heldNoteCount = 0;
 }
@@ -226,9 +229,11 @@ void VoiceManager::renderNextSample (float& leftOut, float& rightOut)
             totalPitchDrift, driftCutoff, matrixOut);
     }
 
-    // Fixed scaling based on max polyphony to prevent volume jumps
-    // as releasing voices die off
-    mono *= 1.0f / std::sqrt (static_cast<float> (maxPolyphony));
+    // Fixed scaling to prevent volume jumps and provide headroom for chords,
+    // independent of the max polyphony setting so changing the knob
+    // doesn't alter the volume of a single note.
+    constexpr float kPolyphonyHeadroom = 4.0f;
+    mono *= 1.0f / std::sqrt (kPolyphonyHeadroom);
 
     leftOut = mono;
     rightOut = mono;

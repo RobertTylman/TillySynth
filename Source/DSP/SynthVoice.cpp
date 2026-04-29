@@ -171,23 +171,27 @@ float SynthVoice::processSample (float lfoFilterMod, float lfoPitchMod,
     float osc2Signal = osc2Sample * env2 * osc2LevelScale;
     float noiseSignal = noiseSample * envN * noiseLevelScale;
 
-    // Filter modulation
+    // Filter modulation - use exponential (octave-based) scaling for natural sound
+    // This allows presets with low cutoffs to sweep across the entire audible range.
     float filterEnvValue = filterEnv.processSample();
-    float envMod = filterEnvValue * filterEnvAmount * baseCutoff;
+    float envModOctaves = filterEnvValue * filterEnvAmount * 10.0f;
 
-    // Key tracking: scale cutoff by note distance from middle C
-    float keyTrackMod = filterKeyTracking * (static_cast<float> (currentNote) - 60.0f) * 50.0f;
+    // Key tracking: 1.0 = 1 octave per 12 semitones
+    float keyTrackOctaves = filterKeyTracking * (static_cast<float> (currentNote) - 60.0f) / 12.0f;
 
     // Velocity-to-filter
-    float velMod = filterVelocitySens * currentVelocity * baseCutoff;
+    float velModOctaves = filterVelocitySens * currentVelocity * 4.0f;
 
-    // LFO cutoff modulation (bipolar, scaled to useful range)
-    float lfoCutoffMod = lfoFilterMod * baseCutoff * 0.5f;
-    float modEnvCutoffAmount = envCutoffMod * baseCutoff * modRanges.cutoff;
+    // LFO cutoff modulation (bipolar)
+    float lfoCutoffOctaves = lfoFilterMod * 4.0f;
+    float modEnvCutoffOctaves = envCutoffMod * 10.0f * modRanges.cutoff;
 
-    float matrixCutoffMod = matrixMod.filterCutoff * baseCutoff * modRanges.cutoff;
-    float modulatedCutoff = baseCutoff + envMod + keyTrackMod + velMod + lfoCutoffMod
-                          + modEnvCutoffAmount + driftCutoffHz + matrixCutoffMod;
+    float matrixCutoffOctaves = matrixMod.filterCutoff * 10.0f * modRanges.cutoff;
+    
+    float totalOctaves = envModOctaves + keyTrackOctaves + velModOctaves + lfoCutoffOctaves 
+                       + modEnvCutoffOctaves + matrixCutoffOctaves;
+
+    float modulatedCutoff = baseCutoff * std::exp2 (totalOctaves) + driftCutoffHz;
     modulatedCutoff = juce::jlimit (20.0f, 20000.0f, modulatedCutoff);
 
     float matrixResMod = matrixMod.filterResonance * modRanges.resonance;
