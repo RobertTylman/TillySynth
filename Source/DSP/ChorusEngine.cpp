@@ -94,6 +94,9 @@ void ChorusEngine::prepare (double sampleRate, int /*samplesPerBlock*/)
     delayLeft.prepare (maxDelaySamples);
     delayRight.prepare (maxDelaySamples);
 
+    if (sampleRate <= 0.0)
+        return;
+
     // Pre-BBD low-pass coefficient.
     //
     // One-pole low-pass in "leaky integrator" form:
@@ -189,7 +192,7 @@ float ChorusEngine::processDelayLine (DelayLine& line, float input, float delayS
 
 void ChorusEngine::process (juce::AudioBuffer<float>& buffer)
 {
-    if (mode == ChorusMode::Off)
+    if (mode == ChorusMode::Off || currentSampleRate <= 0.0)
         return;
 
     int numSamples = buffer.getNumSamples();

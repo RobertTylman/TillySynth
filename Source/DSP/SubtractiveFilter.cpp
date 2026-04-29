@@ -10,7 +10,10 @@ void SubtractiveFilter::prepare (double sampleRate, int samplesPerBlock)
 
     // Smoothing coefficient: ~2ms time constant
     float smoothSamples = static_cast<float> (sampleRate * 0.002);
-    smoothingCoeff = 1.0f - 1.0f / smoothSamples;
+    if (smoothSamples > 0.0f)
+        smoothingCoeff = 1.0f - 1.0f / smoothSamples;
+    else
+        smoothingCoeff = 0.0f;
 
     juce::dsp::ProcessSpec spec;
     spec.sampleRate = sampleRate;
@@ -98,8 +101,10 @@ float SubtractiveFilter::processSample (float input)
 float SubtractiveFilter::processVintageSample (float input)
 {
     // One-pole coefficient from smoothed cutoff
-    float wc = juce::MathConstants<float>::twoPi * smoothedCutoffHz
-             / static_cast<float> (currentSampleRate);
+    float wc = 0.0f;
+    if (currentSampleRate > 0.0)
+        wc = juce::MathConstants<float>::twoPi * smoothedCutoffHz / static_cast<float> (currentSampleRate);
+
     float g = wc / (1.0f + wc);
 
     // Scale resonance into feedback (capped below self-oscillation)
@@ -214,6 +219,9 @@ void SubtractiveFilter::updateCoefficients()
         q = juce::jmin (q, 2.5f);
 
     float cutoff = juce::jlimit (20.0f, 20000.0f, smoothedCutoffHz);
+
+    if (currentSampleRate <= 0.0)
+        return;
 
     auto makeCoeffs = [this, cutoff] (float stageQ) -> juce::dsp::IIR::Coefficients<float>::Ptr
     {

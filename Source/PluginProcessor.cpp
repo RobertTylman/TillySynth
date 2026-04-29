@@ -21,9 +21,17 @@ TillySynthProcessor::TillySynthProcessor()
 bool TillySynthProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
     auto mainOut = layouts.getMainOutputChannelSet();
-    if (mainOut != juce::AudioChannelSet::stereo())
+    auto mainIn  = layouts.getMainInputChannelSet();
+
+    // Main output must be mono or stereo
+    if (mainOut != juce::AudioChannelSet::stereo() && mainOut != juce::AudioChannelSet::mono())
         return false;
 
+    // We don't use main input (it's a synth), but allow it if it matches output or is disabled
+    if (! mainIn.isDisabled() && mainIn != mainOut)
+        return false;
+
+    // Sidechain (input bus 1) can be mono, stereo, or disabled
     auto scIn = layouts.getChannelSet (true, 0);
     if (! scIn.isDisabled() && scIn != juce::AudioChannelSet::mono()
         && scIn != juce::AudioChannelSet::stereo())
@@ -34,6 +42,9 @@ bool TillySynthProcessor::isBusesLayoutSupported (const BusesLayout& layouts) co
 
 void TillySynthProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
+    if (sampleRate <= 0.0)
+        return;
+
     voiceManager.prepare (sampleRate, samplesPerBlock);
     chorus.prepare (sampleRate, samplesPerBlock);
 
@@ -59,6 +70,13 @@ void TillySynthProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 {
     juce::ScopedNoDenormals noDenormals;
     buffer.clear();
+
+    // Diagnostic logging (disabled by default, but useful for debugging Logic silence)
+#if 0
+    static int blockCount = 0;
+    if (++blockCount % 100 == 0)
+        juce::Logger::writeToLog ("TillySynth: processBlock called. Samples: " + juce::String (buffer.getNumSamples()));
+#endif
 
     updateParametersFromAPVTS();
 
@@ -349,6 +367,7 @@ void TillySynthProcessor::handleMidiMessage (const juce::MidiMessage& msg)
 {
     if (msg.isNoteOn())
     {
+        // juce::Logger::writeToLog ("TillySynth: Note On " + juce::String (msg.getNoteNumber()));
         int note = juce::jlimit (0, 127, msg.getNoteNumber() + transposeSemitones + octaveShift * 12);
         voiceManager.handleNoteOn (note, msg.getFloatVelocity());
     }

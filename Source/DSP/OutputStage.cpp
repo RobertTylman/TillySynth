@@ -90,8 +90,10 @@ float OutputStage::processSampleConsole (float input, int channel)
     // One-pole low-pass for HF rolloff (console warmth)
     // Corner: 18 kHz at drive=0 → 8 kHz at drive=1
     float cornerHz = 18000.0f - drive * 10000.0f;
-    float wc = juce::MathConstants<float>::twoPi * cornerHz
-             / static_cast<float> (currentSampleRate);
+    float wc = 0.0f;
+    if (currentSampleRate > 0.0)
+        wc = juce::MathConstants<float>::twoPi * cornerHz / static_cast<float> (currentSampleRate);
+
     float g = wc / (1.0f + wc);
 
     consoleLP[channel] += (saturated - consoleLP[channel]) * g;

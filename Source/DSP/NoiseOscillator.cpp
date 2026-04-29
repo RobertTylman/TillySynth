@@ -43,7 +43,10 @@ float NoiseOscillator::processSample()
 
 void NoiseOscillator::setSHRate (float rateHz)
 {
-    shPhaseInc = static_cast<float> (rateHz / sampleRate);
+    if (sampleRate > 0.0)
+        shPhaseInc = static_cast<float> (rateHz / sampleRate);
+    else
+        shPhaseInc = 0.0f;
 }
 
 float NoiseOscillator::generateWhite()
