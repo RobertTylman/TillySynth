@@ -58,8 +58,9 @@ Unlike static digital recreations, TillySynth feels alive. At its core is a uniq
             
             OutLPF_L[[Post-Wet LPF L]]
             OutLPF_R[[Post-Wet LPF R]]
-            Mix{Dry/Wet Mix}
-            Out([Final Audio Output])
+            Mix_L{Mix L}
+            Mix_R{Mix R}
+            Out([Final Audio Output L/R])
             
             %% Signal Connections
             In --> Sum
@@ -73,11 +74,13 @@ Unlike static digital recreations, TillySynth feels alive. At its core is a uniq
             BBD_L --> OutLPF_L
             BBD_R --> OutLPF_R
             
-            OutLPF_L --> Mix
-            OutLPF_R --> Mix
-            In -. Dry Path .-> Mix
+            OutLPF_L --> Mix_L
+            OutLPF_R --> Mix_R
+            In -. Dry L .-> Mix_L
+            In -. Dry R .-> Mix_R
             
-            Mix --> Out
+            Mix_L --> Out
+            Mix_R --> Out
 
             %% Styling (Boxes UI)
             classDef default font-family:system-ui,sans-serif;
@@ -91,7 +94,7 @@ Unlike static digital recreations, TillySynth feels alive. At its core is a uniq
             class PreLPF,OutLPF_L,OutLPF_R process;
             class BBD_L,BBD_R bbd;
             class LFO,Invert lfo;
-            class Mix mixer;
+            class Mix_L,Mix_R mixer;
         ```
 *   **Lush Reverb**: Integrated algorithmic reverb with room size, damping, and stereo width controls.
 *   **Output Character**: Selectable "Vintage" and "Console" saturation modes for extra warmth and weight.
@@ -119,7 +122,6 @@ Unlike static digital recreations, TillySynth feels alive. At its core is a uniq
 TillySynth prioritizes **Visual and Sonic Character** over clinical precision.
 
 *   **Custom UI with Oscilloscope**: A fully original, Juno-inspired horizontal layout featuring a real-time signal scope for visual feedback.
-*   **Panel Wear**: Every plugin instance renders unique, randomized "surface wear" and "knob scuffs," emphasizing that no two units are the same.
 *   **Input-Focused**: No generic preset browser—TillySynth encourages the lost art of sound design, making every patch a personal creation.
 
 ## 🚀 Getting Started
