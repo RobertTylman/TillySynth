@@ -36,7 +36,7 @@ Unlike static digital recreations, TillySynth feels alive. At its core is a uniq
 
 ### 🌈 Vintage Effects & Output
 *   **1:1 Juno 60 Chorus Emulation**: Meticulous research went into emulating the famous Juno-60 chorus from scratch with classic I, II, and I+II modes.
-    *   *Deep Dive:* [Understanding the Juno-60 Chorus](CHORUS/article/index.html) (`open CHORUS/article/index.html`)
+    *   *Deep Dive:* [Understanding the Juno-60 Chorus](https://roberttylman.github.io/portfolio-site/tillysynth-chorus/index.html)
     *   **Signal Flow (Juno-Style Chorus Pipeline):**
         ```mermaid
         flowchart TD
